@@ -35,10 +35,6 @@ export class GameScene extends Scene {
     this.setupLevelExit();
     this.setupAmbientLight();
 
-    // DEBUG
-    console.log('DEBUG: GameScene.create() reached');
-    console.log('DEBUG: Player texture:', this.player?.texture?.key || 'MISSING');
-
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
 
