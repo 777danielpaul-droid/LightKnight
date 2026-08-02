@@ -26,6 +26,8 @@ export class BootScene extends Scene {
     PlaceholderAssetGenerator.generateHitEffectTexture(this);
 
     // Wechsel zur GameScene (async für sichere Texture-Registrierung)
-    this.scene.start('GameScene');
+    this.time.delayedCall(100, () => {
+      this.scene.start('GameScene');
+    });
   }
 }
