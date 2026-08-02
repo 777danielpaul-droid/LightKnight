@@ -201,8 +201,6 @@ export class Player extends Physics.Arcade.Sprite {
 
       // Dash Screen-Shake
       this.scene.cameras.main.shake(100, 0.008);
-
-      // Dash-Effekt
       this.scene.events.emit('playerDash', this.x, this.y);
     }
 

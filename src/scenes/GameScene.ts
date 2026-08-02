@@ -154,7 +154,15 @@ export class GameScene extends Scene {
 
   private setupSound(): void {
     this.audioManager = new AudioManager(this);
-    this.audioManager.setAmbient('ambient_loop');
+
+    // Browser Autoplay-Policy: Erst nach User-Interaction Sound freigeben
+    const resumeAudio = () => {
+      this.audioManager.resume();
+      this.input.once('pointerdown', resumeAudio);
+      this.input.keyboard.once('keydown', resumeAudio);
+    };
+    this.input.once('pointerdown', resumeAudio);
+    this.input.keyboard.once('keydown', resumeAudio);
   }
 
   private setupAmbientLight(): void {

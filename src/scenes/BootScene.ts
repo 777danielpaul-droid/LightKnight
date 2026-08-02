@@ -25,9 +25,9 @@ export class BootScene extends Scene {
     PlaceholderAssetGenerator.generateParticleTexture(this);
     PlaceholderAssetGenerator.generateHitEffectTexture(this);
 
-    // Wechsel zur GameScene (async für sichere Texture-Registrierung)
-    this.time.delayedCall(100, () => {
-      this.scene.start('GameScene');
-    });
+    // Wechsel zur GameScene
+    // Phaser 3.90: generateTexture ist async, aber textures werden sofort registriert.
+    // scene.start ist sicher nach allen generateTexture-Aufrufen.
+    this.scene.start('GameScene');
   }
 }

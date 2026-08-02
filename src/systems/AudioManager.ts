@@ -3,9 +3,9 @@
  *
  * Features:
  * - 3D Audio-Positionierung relative zum Spieler
- * - Low/Mid/High EQ-Presets (tief, warm, #7b1e2b inspiriert)
- * - Ambient-Loop-Layers mit Crossfade
- * - WebAudio Oszillator-basierte Platzhalter-Sounds
+ * - Low/Mid/High EQ-Presets
+ * - WebAudio Oszillator-basierte Platzhalter-Sounds (keine externen Assets!)
+ * - Ambient-Loop mit Crossfade
  */
 
 import { Scene } from 'phaser';
@@ -17,8 +17,6 @@ interface EQPreset {
   lowMidGain: number;
   highMidGain: number;
   highGain: number;
-  filterQ: number;
-  filterFreq: number;
 }
 
 export class AudioManager {
@@ -27,54 +25,19 @@ export class AudioManager {
   private lowShelf: BiquadFilterNode;
   private highShelf: BiquadFilterNode;
   private players: Map<string, { x: number; y: number }> = new Map();
-  private ambientSource: OscillatorNode | null = null;
-  private currentAmbient: SoundType | null = null;
+  private ambientOsc: OscillatorNode | null = null;
+  private ambientGain: GainNode | null = null;
+  private isEnabled = true;
 
   private static readonly EQ_PRESETS: Record<SoundType, EQPreset> = {
-    ambient_loop: {
-      lowGain: 1.41,
-      lowMidGain: 1.26,
-      highMidGain: 0.89,
-      highGain: 0.71,
-      filterQ: 0.7,
-      filterFreq: 400
-    },
-    sfx_jump: {
-      lowGain: 1.0,
-      lowMidGain: 1.12,
-      highMidGain: 1.26,
-      highGain: 1.0,
-      filterQ: 0.8,
-      filterFreq: 800
-    },
-    sfx_attack: {
-      lowGain: 1.26,
-      lowMidGain: 1.41,
-      highMidGain: 1.0,
-      highGain: 0.89,
-      filterQ: 1.0,
-      filterFreq: 300
-    },
-    sfx_hit: {
-      lowGain: 1.0,
-      lowMidGain: 1.12,
-      highMidGain: 1.26,
-      highGain: 1.41,
-      filterQ: 0.7,
-      filterFreq: 1200
-    },
-    sfx_dash: {
-      lowGain: 1.58,
-      lowMidGain: 0.8,
-      highMidGain: 1.0,
-      highGain: 1.12,
-      filterQ: 0.5,
-      filterFreq: 200
-    }
+    ambient_loop: { lowGain: 1.41, lowMidGain: 1.26, highMidGain: 0.89, highGain: 0.71 },
+    sfx_jump: { lowGain: 1.0, lowMidGain: 1.12, highMidGain: 1.26, highGain: 1.0 },
+    sfx_attack: { lowGain: 1.26, lowMidGain: 1.41, highMidGain: 1.0, highGain: 0.89 },
+    sfx_hit: { lowGain: 1.0, lowMidGain: 1.12, highMidGain: 1.26, highGain: 1.41 },
+    sfx_dash: { lowGain: 1.58, lowMidGain: 0.8, highMidGain: 1.0, highGain: 1.12 }
   };
 
   constructor(_scene: Scene) {
-    // WebAudio Context direkt erstellen (Browser-kompatibel)
     this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.7;
@@ -92,7 +55,7 @@ export class AudioManager {
     this.highShelf.connect(this.masterGain);
   }
 
-  public applyEQ(soundType: SoundType): void {
+  private applyEQ(soundType: SoundType): void {
     const preset = AudioManager.EQ_PRESETS[soundType];
     if (!preset) return;
     this.lowShelf.gain.value = Math.log2(preset.lowGain) * 6;
@@ -101,6 +64,7 @@ export class AudioManager {
   }
 
   public playSFX(type: SoundType, x?: number, y?: number): void {
+    if (!this.isEnabled) return;
     const preset = AudioManager.EQ_PRESETS[type];
 
     const osc = this.ctx.createOscillator();
@@ -163,27 +127,38 @@ export class AudioManager {
   }
 
   public setAmbient(type: SoundType): void {
-    if (this.currentAmbient === type) return;
-
-    const osc = this.ctx.createOscillator();
-    const gainNode = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = 85;
-
-    gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 2);
-
-    osc.connect(gainNode);
-    gainNode.connect(this.lowShelf);
-
-    if (this.ambientSource) {
-      this.ambientSource.stop(this.ctx.currentTime + 2);
+    // Stop existing ambient
+    if (this.ambientOsc) {
+      try {
+        this.ambientOsc.stop();
+      } catch { /* already stopped */ }
     }
 
-    osc.start();
-    this.ambientSource = osc;
-    this.currentAmbient = type;
     this.applyEQ(type);
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = 85;
+    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 5);
+    osc.connect(gain);
+    gain.connect(this.lowShelf);
+    osc.start();
+    this.ambientOsc = osc;
+    this.ambientGain = gain;
+    this.presetAmbientTimeout = setTimeout(() => this.ambientOsc?.stop(), 5000) as any;
+  }
+
+  private presetAmbientTimeout: any = null;
+
+  public resume(): void {
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().then(() => {
+        this.setAmbient('ambient_loop');
+      });
+    } else {
+      this.setAmbient('ambient_loop');
+    }
   }
 
   public registerPlayer(x: number, y: number): void {
@@ -195,6 +170,9 @@ export class AudioManager {
   }
 
   public destroy(): void {
+    if (this.presetAmbientTimeout) clearTimeout(this.presetAmbientTimeout);
+    this.ambientOsc?.stop();
     this.ctx.close();
+    this.isEnabled = false;
   }
 }
