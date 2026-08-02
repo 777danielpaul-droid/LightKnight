@@ -9,7 +9,7 @@ import { Enemy } from '../entities/Enemy';
 import { PlayerConfig } from '../config/PlayerConfig';
 import { CombatSystem, HitboxConfig } from '../systems/CombatSystem';
 import { ParticleSystem } from '../systems/ParticleSystem';
-import { soundSystem } from '../systems/SoundSystem';
+import { AudioManager } from '../systems/AudioManager';
 
 export class GameScene extends Scene {
   static readonly KEY = 'GameScene';
@@ -21,6 +21,7 @@ export class GameScene extends Scene {
   private particleSystem?: ParticleSystem;
   private hitboxes!: Physics.Arcade.Group;
   private levelExit?: GameObjects.Zone;
+  private audioManager!: AudioManager;
 
   constructor() {
     super(GameScene.KEY);
@@ -29,7 +30,7 @@ export class GameScene extends Scene {
   create(): void {
     this.setupWorld();
     this.setupPlayer();
-    this.setupParticles(); // MUSS vor Combat kommen (wird dort referenziert)
+    this.setupParticles();
     this.setupEnemies();
     this.setupCombat();
     this.setupLevelExit();
@@ -42,6 +43,9 @@ export class GameScene extends Scene {
     this.player.update(delta);
     this.enemies.forEach(enemy => enemy.update(delta));
 
+    // Audio-Position updaten
+    this.audioManager.registerPlayer(this.player.x, this.player.y);
+
     // Hitbox-Position updaten
     this.hitboxes.getChildren().forEach((child) => {
       const sprite = child as Physics.Arcade.Sprite;
@@ -53,10 +57,8 @@ export class GameScene extends Scene {
   }
 
   private setupWorld(): void {
-    // Hintergrund-Farbe
     this.cameras.main.setBackgroundColor('#0a0f2b');
 
-    // Platzhalter-Plattformen
     this.platforms = this.physics.add.staticGroup();
 
     const createPlatform = (x: number, y: number, w: number, h: number): void => {
@@ -64,32 +66,19 @@ export class GameScene extends Scene {
       this.platforms.add(rect);
     };
 
-    // Boden (y=650, Deckel bei y=630)
-    createPlatform(640, 650, 1280, 40);
-    // Plattform 1
-    createPlatform(200, 490, 200, 20);
-    // Plattform 2
-    createPlatform(600, 390, 200, 20);
-    // Plattform 3 (End-Plattform)
-    createPlatform(300, 290, 150, 20);
+    createPlatform(640, 650, 1280, 40);   // Boden
+    createPlatform(200, 490, 200, 20);    // Plattform 1
+    createPlatform(600, 390, 200, 20);    // Plattform 2
+    createPlatform(300, 290, 150, 20);    // Plattform 3 (Ende)
 
     this.platforms.refresh();
   }
 
   private setupPlayer(): void {
-    this.player = new Player(
-      this,
-      PlayerConfig.startX,
-      PlayerConfig.startY
-    );
-
-    // Input-System initialisieren (muss nach Scene.create sein)
+    this.player = new Player(this, PlayerConfig.startX, PlayerConfig.startY);
     this.player.initInput(this);
-
-    // Kollision mit Plattformen
     this.physics.add.collider(this.player, this.platforms);
 
-    // Player attack-Event lauschen
     this.events.on('playerAttack', (attacker: Player, config: HitboxConfig) => {
       this.createPlayerHitbox(attacker, config);
     });
@@ -97,7 +86,6 @@ export class GameScene extends Scene {
 
   private createPlayerHitbox(attacker: Player, config: HitboxConfig): void {
     const direction = attacker.flipX ? -1 : 1;
-
     const hitbox = this.add.zone(
       attacker.x + config.offsetX * direction,
       attacker.y + config.offsetY,
@@ -110,31 +98,19 @@ export class GameScene extends Scene {
     body.setAllowGravity(false);
     body.setImmovable(true);
     body.setVelocityX(config.knockbackDirection * 50);
-
     this.hitboxes.add(hitbox);
 
-    // Auto-Destroy nach kurzer Zeit
     this.time.delayedCall(150, () => {
-      if (hitbox.scene) {
-        hitbox.destroy();
-      }
+      if (hitbox.scene) hitbox.destroy();
     });
   }
 
   private setupEnemies(): void {
-    // Gegner auf Plattform 1
-    const enemy1 = new Enemy(this, 150, 440, {
-      maxHealth: 2,
-      invincibilityDuration: 0.5
-    });
+    const enemy1 = new Enemy(this, 150, 440, { maxHealth: 2, invincibilityDuration: 0.5 });
     this.physics.add.collider(enemy1, this.platforms);
     this.enemies.push(enemy1);
 
-    // Gegner auf Plattform 2
-    const enemy2 = new Enemy(this, 550, 340, {
-      maxHealth: 2,
-      invincibilityDuration: 0.5
-    });
+    const enemy2 = new Enemy(this, 550, 340, { maxHealth: 2, invincibilityDuration: 0.5 });
     this.physics.add.collider(enemy2, this.platforms);
     this.enemies.push(enemy2);
   }
@@ -143,45 +119,25 @@ export class GameScene extends Scene {
     this.combatSystem = new CombatSystem(this);
     this.hitboxes = this.physics.add.group();
 
-    // Hitbox-Body überlappt mit Enemy-Hitboxes
-    this.physics.add.overlap(
-      this.hitboxes,
-      this.enemies,
-      (hitboxObj, enemyObj) => {
-        const hitboxSprite = hitboxObj as Physics.Arcade.Sprite;
-        const enemy = enemyObj as Enemy;
+    this.physics.add.overlap(this.hitboxes, this.enemies, (hitboxObj, enemyObj) => {
+      const hitboxSprite = hitboxObj as Physics.Arcade.Sprite;
+      const enemy = enemyObj as Enemy;
 
-        if (enemy.isAlive()) {
-          const alive = enemy.takeDamage(1, hitboxSprite.body.velocity.x > 0 ? 1 : -1, 150);
-
-          // Hit-Effect (falls ParticleSystem verfügbar)
-          if (this.particleSystem) {
-            this.particleSystem.playHitSpark(enemy.x, enemy.y);
-          }
-          soundSystem.play('sfx_hit');
-
-          if (!alive) {
-            enemy.destroy();
-          }
-
-          // Hitbox zerstören
-          hitboxSprite.destroy();
-        }
+      if (enemy.isAlive()) {
+        enemy.takeDamage(1, hitboxSprite.body.velocity.x > 0 ? 1 : -1, 150);
+        if (this.particleSystem) this.particleSystem.playHitSpark(enemy.x, enemy.y);
+        this.audioManager.playSFX('sfx_hit', enemy.x, enemy.y);
+        if (!enemy.isAlive()) enemy.destroy();
+        hitboxSprite.destroy();
       }
-    );
+    });
   }
 
   private setupParticles(): void {
-    try {
-      this.particleSystem = new ParticleSystem(this);
-    } catch (e) {
-      console.warn('ParticleSystem nicht verfügbar, Effekte deaktiviert');
-      this.particleSystem = undefined;
-    }
+    this.particleSystem = new ParticleSystem(this);
   }
 
   private setupLevelExit(): void {
-    // Level-Exit auf Plattform 3 (rechter Rand)
     this.levelExit = this.add.zone(375, 275, 30, 10);
     this.physics.world.enable(this.levelExit);
     (this.levelExit.body as Physics.Arcade.Body).setAllowGravity(false);
@@ -190,20 +146,14 @@ export class GameScene extends Scene {
     // Exit-Zeichen (Bordeaux)
     this.add.rectangle(375, 275, 30, 10, 0x7b1e2b, 0.6);
 
-    this.physics.add.overlap(
-      this.player,
-      this.levelExit,
-      () => {
-        this.handleLevelComplete();
-      }
-    );
+    this.physics.add.overlap(this.player, this.levelExit, () => {
+      this.handleLevelComplete();
+    });
   }
 
   private setupSound(): void {
-    soundSystem.initDefaultSounds().then(() => {
-      soundSystem.play('ambient_dungeon');
-      soundSystem.play('music_intro');
-    });
+    this.audioManager = new AudioManager(this);
+    this.audioManager.setAmbient('ambient_loop');
   }
 
   private handleLevelComplete(): void {
