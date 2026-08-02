@@ -10,6 +10,7 @@ import { HealthComponent, HealthConfig } from '../components/HealthComponent';
 import { InputSystem, PlayerCommand } from '../systems/InputSystem';
 import { AnimationSystem, AnimationState } from '../systems/AnimationSystem';
 import { Weapon } from './Weapon';
+import { soundSystem } from '../systems/SoundSystem';
 
 export class Player extends Physics.Arcade.Sprite {
   private stats: MovementStats;
@@ -182,6 +183,7 @@ export class Player extends Physics.Arcade.Sprite {
     const body = this.body as Physics.Arcade.Body;
     body.setVelocityY(this.stats.jumpVelocity);
     this.coyoteTimer = 0;
+    soundSystem.play('sfx_jump');
   }
 
   private handleDash(commands: PlayerCommand, dt: number): void {
@@ -203,7 +205,6 @@ export class Player extends Physics.Arcade.Sprite {
       this.dashTimer -= dt;
       if (this.dashTimer <= 0) {
         this.isDashing = false;
-        // Nach Dash: Geschwindigkeit sanft auf 0 setzen (oder weiterlaufen lassen)
       }
     }
   }
@@ -236,6 +237,7 @@ export class Player extends Physics.Arcade.Sprite {
     if (hitboxConfig) {
       // Spawn Hitbox (wird vom CombatSystem in GameScene verarbeitet)
       this.scene.events.emit('playerAttack', this, hitboxConfig);
+      soundSystem.play('sfx_attack');
     }
   }
 

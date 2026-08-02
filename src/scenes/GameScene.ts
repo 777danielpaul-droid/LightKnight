@@ -1,23 +1,26 @@
 /**
  * GameScene – Hauptspielszene.
- * Initialisiert den Spieler HIT, Gegner, Kampf-System und Plattformen.
+ * Initialisiert Player HIT, Gegner, Kampf, Sound & Partikel-System.
  */
 
-import { Scene, Physics } from 'phaser';
+import { Scene, Physics, GameObjects } from 'phaser';
 import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
 import { PlayerConfig } from '../config/PlayerConfig';
 import { CombatSystem, HitboxConfig } from '../systems/CombatSystem';
-import { PlaceholderAssetGenerator } from '../systems/AssetGenerator';
+import { ParticleSystem } from '../systems/ParticleSystem';
+import { soundSystem } from '../systems/SoundSystem';
 
 export class GameScene extends Scene {
   static readonly KEY = 'GameScene';
 
   private player!: Player;
-  private platforms! : Physics.Arcade.StaticGroup;
+  private platforms!: Physics.Arcade.StaticGroup;
   private enemies: Enemy[] = [];
   private combatSystem!: CombatSystem;
+  private particleSystem?: ParticleSystem;
   private hitboxes!: Physics.Arcade.Group;
+  private levelExit?: GameObjects.Zone;
 
   constructor() {
     super(GameScene.KEY);
@@ -26,14 +29,20 @@ export class GameScene extends Scene {
   create(): void {
     this.setupWorld();
     this.setupPlayer();
+    this.setupParticles(); // MUSS vor Combat kommen (wird dort referenziert)
     this.setupEnemies();
     this.setupCombat();
+    this.setupLevelExit();
+    this.setupSound();
+
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
 
   update(time: number, delta: number): void {
     this.player.update(delta);
     this.enemies.forEach(enemy => enemy.update(delta));
+
+    // Hitbox-Position updaten
     this.hitboxes.getChildren().forEach((child) => {
       const sprite = child as Physics.Arcade.Sprite;
       if (sprite.body) {
@@ -47,7 +56,7 @@ export class GameScene extends Scene {
     // Hintergrund-Farbe
     this.cameras.main.setBackgroundColor('#0a0f2b');
 
-    // Platzhalter-Plattformen (sichtbar als dunkles Violett-Blau, später durch Tilemap ersetzt)
+    // Platzhalter-Plattformen
     this.platforms = this.physics.add.staticGroup();
 
     const createPlatform = (x: number, y: number, w: number, h: number): void => {
@@ -61,7 +70,7 @@ export class GameScene extends Scene {
     createPlatform(200, 490, 200, 20);
     // Plattform 2
     createPlatform(600, 390, 200, 20);
-    // Plattform 3
+    // Plattform 3 (End-Plattform)
     createPlatform(300, 290, 150, 20);
 
     this.platforms.refresh();
@@ -84,50 +93,6 @@ export class GameScene extends Scene {
     this.events.on('playerAttack', (attacker: Player, config: HitboxConfig) => {
       this.createPlayerHitbox(attacker, config);
     });
-  }
-
-  private setupEnemies(): void {
-    // Gegner auf Plattform 1
-    const enemy1 = new Enemy(this, 150, 440, {
-      maxHealth: 2,
-      invincibilityDuration: 0.5
-    });
-    this.physics.add.collider(enemy1, this.platforms);
-    this.enemies.push(enemy1);
-
-    // Gegner auf Plattform 2
-    const enemy2 = new Enemy(this, 550, 340, {
-      maxHealth: 2,
-      invincibilityDuration: 0.5
-    });
-    this.physics.add.collider(enemy2, this.platforms);
-    this.enemies.push(enemy2);
-  }
-
-  private setupCombat(): void {
-    this.combatSystem = new CombatSystem(this);
-    this.hitboxes = this.physics.add.group();
-
-    // Hitbox-Body überlappt mit Enemy-Hitboxen
-    this.physics.add.overlap(
-      this.hitboxes,
-      this.enemies,
-      (hitboxObj, enemyObj) => {
-        const hitboxBody = hitboxObj as Physics.Arcade.Body;
-        const enemy = enemyObj as Enemy;
-
-        if (enemy.isAlive()) {
-          enemy.takeDamage(1, hitboxBody.velocity.x > 0 ? 1 : -1, 150);
-
-          // Hit-Effect spawnen
-          PlaceholderAssetGenerator.generateHitEffectTexture(this);
-
-          // Hitbox nach Treffer entfernen
-          const hitboxSprite = hitboxObj as Physics.Arcade.Sprite;
-          hitboxSprite.destroy();
-        }
-      }
-    );
   }
 
   private createPlayerHitbox(attacker: Player, config: HitboxConfig): void {
@@ -154,5 +119,96 @@ export class GameScene extends Scene {
         hitbox.destroy();
       }
     });
+  }
+
+  private setupEnemies(): void {
+    // Gegner auf Plattform 1
+    const enemy1 = new Enemy(this, 150, 440, {
+      maxHealth: 2,
+      invincibilityDuration: 0.5
+    });
+    this.physics.add.collider(enemy1, this.platforms);
+    this.enemies.push(enemy1);
+
+    // Gegner auf Plattform 2
+    const enemy2 = new Enemy(this, 550, 340, {
+      maxHealth: 2,
+      invincibilityDuration: 0.5
+    });
+    this.physics.add.collider(enemy2, this.platforms);
+    this.enemies.push(enemy2);
+  }
+
+  private setupCombat(): void {
+    this.combatSystem = new CombatSystem(this);
+    this.hitboxes = this.physics.add.group();
+
+    // Hitbox-Body überlappt mit Enemy-Hitboxes
+    this.physics.add.overlap(
+      this.hitboxes,
+      this.enemies,
+      (hitboxObj, enemyObj) => {
+        const hitboxSprite = hitboxObj as Physics.Arcade.Sprite;
+        const enemy = enemyObj as Enemy;
+
+        if (enemy.isAlive()) {
+          const alive = enemy.takeDamage(1, hitboxSprite.body.velocity.x > 0 ? 1 : -1, 150);
+
+          // Hit-Effect (falls ParticleSystem verfügbar)
+          if (this.particleSystem) {
+            this.particleSystem.playHitSpark(enemy.x, enemy.y);
+          }
+          soundSystem.play('sfx_hit');
+
+          if (!alive) {
+            enemy.destroy();
+          }
+
+          // Hitbox zerstören
+          hitboxSprite.destroy();
+        }
+      }
+    );
+  }
+
+  private setupParticles(): void {
+    try {
+      this.particleSystem = new ParticleSystem(this);
+    } catch (e) {
+      console.warn('ParticleSystem nicht verfügbar, Effekte deaktiviert');
+      this.particleSystem = undefined;
+    }
+  }
+
+  private setupLevelExit(): void {
+    // Level-Exit auf Plattform 3 (rechter Rand)
+    this.levelExit = this.add.zone(375, 275, 30, 10);
+    this.physics.world.enable(this.levelExit);
+    (this.levelExit.body as Physics.Arcade.Body).setAllowGravity(false);
+    (this.levelExit.body as Physics.Arcade.Body).setImmovable(true);
+
+    // Exit-Zeichen (Bordeaux)
+    this.add.rectangle(375, 275, 30, 10, 0x7b1e2b, 0.6);
+
+    this.physics.add.overlap(
+      this.player,
+      this.levelExit,
+      () => {
+        this.handleLevelComplete();
+      }
+    );
+  }
+
+  private setupSound(): void {
+    soundSystem.initDefaultSounds().then(() => {
+      soundSystem.play('ambient_dungeon');
+      soundSystem.play('music_intro');
+    });
+  }
+
+  private handleLevelComplete(): void {
+    this.cameras.main.shake(300, 0.01);
+    this.cameras.main.zoomTo(1.2, 300);
+    this.scene.start('GameScene');
   }
 }
