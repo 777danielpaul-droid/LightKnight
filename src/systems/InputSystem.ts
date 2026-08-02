@@ -3,7 +3,7 @@
  * Unterstützt mehrere Tasten pro Aktion (z. B. 'A' und 'ArrowLeft').
  */
 
-import { Scene, GameObjects } from 'phaser';
+import { Scene, Input } from 'phaser';
 import { InputConfig } from '../data/input-config';
 
 export type ActionName = keyof typeof InputConfig;
@@ -23,7 +23,7 @@ export interface PlayerCommand {
 
 export class InputSystem {
   private keys: Map<string, boolean> = new Map();
-  private justPressed: Set<string> = new Set();
+  private keyObjects: Map<string, Input.Keyboard.Key> = new Map();
   private scene: Scene;
 
   constructor(scene: Scene) {
@@ -38,16 +38,19 @@ export class InputSystem {
     });
 
     allUniqueKeys.forEach((key) => {
-      const phaserKey = this.scene.input.keyboard.addKey(key);
       this.keys.set(key, false);
+      const keyObj = this.scene.input.keyboard.addKey(key);
+      this.keyObjects.set(key, keyObj);
+    });
+  }
 
-      phaserKey.on('down', () => {
-        this.keys.set(key, true);
-        this.justPressed.add(key);
-      });
-      phaserKey.on('up', () => {
-        this.keys.set(key, false);
-      });
+  /**
+   * Aktualisiert internen Zustand basierend auf Phaser-Key-Status.
+   * Muss pro Frame aufgerufen werden.
+   */
+  update(): void {
+    this.keyObjects.forEach((keyObj, keyName) => {
+      this.keys.set(keyName, keyObj.isDown);
     });
   }
 
@@ -61,17 +64,14 @@ export class InputSystem {
 
   /**
    * Prüft, ob eine Aktion gerade frisch gedrückt wurde (Edge-Trigger).
+   * Nutzt Phasers JustDown-Funktion für exakte Edge-Erkennung.
    */
   isActionJustPressed(action: ActionName): boolean {
     const keyList = InputConfig[action];
-    return keyList.some((k) => this.justPressed.has(k));
-  }
-
-  /**
-   * Muss pro Frame aufgerufen werden, um Just-Pressed-Status zurückzusetzen.
-   */
-  update(): void {
-    this.justPressed.clear();
+    return keyList.some((k) => {
+      const keyObj = this.keyObjects.get(k);
+      return keyObj ? Input.Keyboard.JustDown(keyObj) : false;
+    });
   }
 
   /**

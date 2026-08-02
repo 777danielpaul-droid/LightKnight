@@ -28,20 +28,29 @@ export class GameScene extends Scene {
   }
 
   private setupWorld(): void {
-    // Einfaches Hintergrund-Farbe
+    // Hintergrund-Farbe
     this.cameras.main.setBackgroundColor('#0a0f2b');
 
-    // Platzhalter-Plattformen (später durch Tilemap ersetzt)
+    // Platzhalter-Plattformen (sichtbar als dunkles Violett-Blau, später durch Tilemap ersetzt)
     this.platforms = this.physics.add.staticGroup();
 
-    // Boden
-    this.platforms.create(400, 680, '').setDisplaySize(1280, 40).setOrigin(0.5);
+    const createPlatform = (x: number, y: number, w: number, h: number): void => {
+      // Nutze sichtbare Rechtecke mit StaticBody für verlässliche Kollision
+      const rect = this.add.rectangle(x, y, w, h, 0x2d1a4d, 0.8);
+      this.platforms.add(rect);
+    };
+
+    // Boden (y=650, Deckel bei y=630)
+    createPlatform(640, 650, 1280, 40);
     // Plattform 1
-    this.platforms.create(200, 500, '').setDisplaySize(200, 20).setOrigin(0.5);
+    createPlatform(200, 490, 200, 20);
     // Plattform 2
-    this.platforms.create(600, 400, '').setDisplaySize(200, 20).setOrigin(0.5);
+    createPlatform(600, 390, 200, 20);
     // Plattform 3
-    this.platforms.create(300, 300, '').setDisplaySize(150, 20).setOrigin(0.5);
+    createPlatform(300, 290, 150, 20);
+
+    // Wichtig: StaticGroup-Body neu berechnen
+    this.platforms.refresh();
   }
 
   private setupPlayer(): void {
@@ -50,6 +59,9 @@ export class GameScene extends Scene {
       PlayerConfig.startX,
       PlayerConfig.startY
     );
+
+    // Input-System initialisieren (muss nach Scene.create sein)
+    this.player.initInput(this);
 
     // Kollision mit Plattformen
     this.physics.add.collider(this.player, this.platforms);

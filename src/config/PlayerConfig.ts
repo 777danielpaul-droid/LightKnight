@@ -31,5 +31,5 @@ export const PlayerConfig = {
   width: 32,
   height: 48,
   startX: 200,
-  startY: 600
+  startY: 590
 };

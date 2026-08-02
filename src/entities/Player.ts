@@ -27,7 +27,6 @@ export class Player extends Physics.Arcade.Sprite {
   constructor(scene: Scene, x: number, y: number) {
     super(scene, x, y, 'player_idle'); // Platzhalter-Textur
     this.stats = createMovementStats();
-    this.inputSystem = new InputSystem(scene);
     this.currentHealth = PlayerConfig.maxHealth;
 
     scene.add.existing(this);
@@ -37,10 +36,21 @@ export class Player extends Physics.Arcade.Sprite {
     this.setupAnimations();
   }
 
+  /**
+   * Muss nach Scene.create() aufgerufen werden, da Input-System abhängig
+   * von scene.input ist, das erst nach Boot verfügbar ist.
+   */
+  initInput(scene: Scene): void {
+    this.inputSystem = new InputSystem(scene);
+  }
+
   private setupPhysics(): void {
     const body = this.body as Physics.Arcade.Body;
-    body.setCollideWorldBounds(true);
     body.setAllowGravity(true);
+    body.setImmovable(false);
+    body.setCollideWorldBounds(true);
+    body.setVelocity(0, 0);
+    body.setBounce(0);
   }
 
   private setupAnimations(): void {
@@ -124,14 +134,14 @@ export class Player extends Physics.Arcade.Sprite {
     // On-Ground Check
     const body = this.body as Physics.Arcade.Body;
     const isOnFloor = body.onFloor();
-    
+
     // Coyote-Time: wenn gerade vom Boden gelassen, kurz noch springen können
     if (!this.wasOnFloor && isOnFloor) {
       this.coyoteTimer = this.stats.coyoteTime;
     }
     this.wasOnFloor = isOnFloor;
 
-    // Puffer + Coyote-Time auswerten
+    // Direkter Sprung, wenn auf dem Boden oder Coyote-Time aktiv
     if (this.jumpBufferTimer > 0) {
       const canUseCoyote = !this.isDashing && (isOnFloor || this.coyoteTimer > 0);
       if (canUseCoyote) {
