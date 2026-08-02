@@ -197,8 +197,13 @@ export class Player extends Physics.Arcade.Sprite {
       const direction = this.facingRight ? 1 : -1;
       const body = this.body as Physics.Arcade.Body;
       body.setVelocityX(direction * this.stats.dashSpeed);
-      body.setVelocityY(0); // Dash horizontal
-      // Dash-Effekt später hinzufügen
+      body.setVelocityY(0);
+
+      // Dash Screen-Shake
+      this.scene.cameras.main.shake(100, 0.008);
+
+      // Dash-Effekt
+      this.scene.events.emit('playerDash', this.x, this.y);
     }
 
     if (this.isDashing) {
@@ -243,6 +248,21 @@ export class Player extends Physics.Arcade.Sprite {
 
   takeDamage(amount: number): boolean {
     const alive = this.health.takeDamage(amount, Date.now() / 1000);
+    // Hit-Flash: Bordeaux-Rot Tint
+    if (alive) {
+      this.setTint(0x7b1e2b);
+      this.scene.tweens.add({
+        targets: this,
+        alpha: 0.3,
+        duration: 80,
+        yoyo: true,
+        repeat: 2,
+        onComplete: () => {
+          this.clearTint();
+          this.alpha = 1;
+        }
+      });
+    }
     return alive;
   }
 

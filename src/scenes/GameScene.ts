@@ -35,6 +35,7 @@ export class GameScene extends Scene {
     this.setupCombat();
     this.setupLevelExit();
     this.setupSound();
+    this.setupAmbientLight();
 
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
@@ -154,6 +155,22 @@ export class GameScene extends Scene {
   private setupSound(): void {
     this.audioManager = new AudioManager(this);
     this.audioManager.setAmbient('ambient_loop');
+  }
+
+  private setupAmbientLight(): void {
+    // Ambient-Licht: Hellen Halo um Spieler (#00f0ff Cyan, dunkelblau Hintergrund)
+    // Nutzt einen großen, halbtransparenten Kreis als Light-Overlay
+    const light = this.add.circle(0, 0, 400, 0x00f0ff, 0.12);
+    light.setDepth(-1);
+    this.cameras.main.setBounds(-100, -100, 2000, 1200);
+    // Hintergrund-Dunkelheit für Kontrast
+    const darkness = this.add.rectangle(800, 400, 2000, 1200, 0x000000, 0.7);
+    darkness.setDepth(-2);
+    // Spieler-Licht folgt
+    this.cameras.main.on('cameramove', () => {
+      light.x = this.player.x;
+      light.y = this.player.y;
+    });
   }
 
   private handleLevelComplete(): void {
