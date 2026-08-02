@@ -11,11 +11,10 @@ const { launch } = require('puppeteer');
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
   
-  // Capture console
   const logs = [];
   page.on('console', msg => {
     const text = msg.text();
-    if (text.includes('[Player]') || text.includes('[GameScene]')) {
+    if (text.includes('DEBUG') || text.includes('Player') || text.includes('GameScene') || text.includes('BootScene')) {
       logs.push(text);
       console.log('  ', text);
     }
@@ -24,45 +23,41 @@ const { launch } = require('puppeteer');
   
   await page.goto('http://localhost:3000', { waitUntil: 'networkidle0' });
   
-  // Warte auf Initialisierung
-  await new Promise(r => setTimeout(r, 800));
-  console.log('=== Initialisierung komplett ===');
+  // Warte 1 Sekunde für delayedCall(200) + Initialisierung
+  await new Promise(r => setTimeout(r, 1500));
+  console.log('=== Nach 1500ms ===');
   
   // Fokusiere Canvas
   await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
-    if (canvas) {
-      canvas.focus();
-      canvas.setAttribute('tabindex', '0');
-    }
+    if (canvas) { canvas.focus(); canvas.setAttribute('tabindex', '0'); }
   });
   
-  console.log('=== Taste A drücken (bewegen) ===');
+  console.log('=== Taste A (bewegen) ===');
   await page.keyboard.down('a');
   await new Promise(r => setTimeout(r, 400));
   await page.keyboard.up('a');
   
-  console.log('=== Space drücken (springen) ===');
+  console.log('=== Space (springen) ===');
   await page.keyboard.down('Space');
-  await new Promise(r => setTimeout(r, 200));
+  await new Promise(r => setTimeout(r, 300));
   await page.keyboard.up('Space');
   
-  console.log('=== J drücken (angriff) ===');
+  console.log('=== J (angriff) ===');
   await page.keyboard.down('j');
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 300));
   await page.keyboard.up('j');
   
-  console.log('=== Shift drücken (dash) ===');
+  console.log('=== Shift (dash) ===');
   await page.keyboard.down('Shift');
   await new Promise(r => setTimeout(r, 300));
   await page.keyboard.up('Shift');
   
-  await new Promise(r => setTimeout(r, 500));
-  console.log('=== Tests abgeschlossen ===');
-  console.log('Gefangene Logs:', logs.length);
+  await new Promise(r => setTimeout(r, 300));
+  console.log('=== Tests abgeschlossen, Logs:', logs.length, '===');
   
   await page.screenshot({ path: '/Users/danielpaul/Desktop/LightKnight/screenshot_test.png' });
-  console.log('Screenshot gespeichert!');
+  console.log('Screenshot saved!');
   
   await browser.close();
 })().catch(console.error);

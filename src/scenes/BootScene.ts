@@ -27,7 +27,11 @@ export class BootScene extends Scene {
 
     // Wechsel zur GameScene
     // Phaser 3.90: generateTexture ist async, aber textures werden sofort registriert.
-    // scene.start ist sicher nach allen generateTexture-Aufrufen.
-    this.scene.start('GameScene');
+    // Wechsel zur GameScene
+    // Phaser 3.90 generateTexture ist async – Textures brauchen Zeit
+    // 200ms Delay ist sicherer als 100ms für alle Browser
+    this.time.delayedCall(200, () => {
+      this.scene.start('GameScene');
+    });
   }
 }

@@ -1,6 +1,7 @@
 /**
  * GameScene – Hauptspielszene.
- * Initialisiert Player HIT, Gegner, Kampf, Sound & Partikel-System.
+ * Initialisiert Player HIT, Gegner, Kampf & Ambient-Licht.
+ * Sound kommt in Milestone 6 (AudioManager-Integration).
  */
 
 import { Scene, Physics, GameObjects } from 'phaser';
@@ -9,7 +10,6 @@ import { Enemy } from '../entities/Enemy';
 import { PlayerConfig } from '../config/PlayerConfig';
 import { CombatSystem, HitboxConfig } from '../systems/CombatSystem';
 import { ParticleSystem } from '../systems/ParticleSystem';
-import { AudioManager } from '../systems/AudioManager';
 
 export class GameScene extends Scene {
   static readonly KEY = 'GameScene';
@@ -21,7 +21,6 @@ export class GameScene extends Scene {
   private particleSystem?: ParticleSystem;
   private hitboxes!: Physics.Arcade.Group;
   private levelExit?: GameObjects.Zone;
-  private audioManager!: AudioManager;
 
   constructor() {
     super(GameScene.KEY);
@@ -34,8 +33,11 @@ export class GameScene extends Scene {
     this.setupEnemies();
     this.setupCombat();
     this.setupLevelExit();
-    this.setupSound();
     this.setupAmbientLight();
+
+    // DEBUG
+    console.log('DEBUG: GameScene.create() reached');
+    console.log('DEBUG: Player texture:', this.player?.texture?.key || 'MISSING');
 
     this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
   }
@@ -43,9 +45,6 @@ export class GameScene extends Scene {
   update(time: number, delta: number): void {
     this.player.update(delta);
     this.enemies.forEach(enemy => enemy.update(delta));
-
-    // Audio-Position updaten
-    this.audioManager.registerPlayer(this.player.x, this.player.y);
 
     // Hitbox-Position updaten
     this.hitboxes.getChildren().forEach((child) => {
@@ -59,7 +58,6 @@ export class GameScene extends Scene {
 
   private setupWorld(): void {
     this.cameras.main.setBackgroundColor('#0a0f2b');
-
     this.platforms = this.physics.add.staticGroup();
 
     const createPlatform = (x: number, y: number, w: number, h: number): void => {
@@ -70,7 +68,7 @@ export class GameScene extends Scene {
     createPlatform(640, 650, 1280, 40);   // Boden
     createPlatform(200, 490, 200, 20);    // Plattform 1
     createPlatform(600, 390, 200, 20);    // Plattform 2
-    createPlatform(300, 290, 150, 20);    // Plattform 3 (Ende)
+    createPlatform(300, 290, 150, 20);    // Plattform 3
 
     this.platforms.refresh();
   }
@@ -126,8 +124,6 @@ export class GameScene extends Scene {
 
       if (enemy.isAlive()) {
         enemy.takeDamage(1, hitboxSprite.body.velocity.x > 0 ? 1 : -1, 150);
-        if (this.particleSystem) this.particleSystem.playHitSpark(enemy.x, enemy.y);
-        this.audioManager.playSFX('sfx_hit', enemy.x, enemy.y);
         if (!enemy.isAlive()) enemy.destroy();
         hitboxSprite.destroy();
       }
@@ -152,29 +148,12 @@ export class GameScene extends Scene {
     });
   }
 
-  private setupSound(): void {
-    this.audioManager = new AudioManager(this);
-
-    // Browser Autoplay-Policy: Erst nach User-Interaction Sound freigeben
-    const resumeAudio = () => {
-      this.audioManager.resume();
-      this.input.once('pointerdown', resumeAudio);
-      this.input.keyboard.once('keydown', resumeAudio);
-    };
-    this.input.once('pointerdown', resumeAudio);
-    this.input.keyboard.once('keydown', resumeAudio);
-  }
-
   private setupAmbientLight(): void {
-    // Ambient-Licht: Hellen Halo um Spieler (#00f0ff Cyan, dunkelblau Hintergrund)
-    // Nutzt einen großen, halbtransparenten Kreis als Light-Overlay
     const light = this.add.circle(0, 0, 400, 0x00f0ff, 0.12);
     light.setDepth(-1);
     this.cameras.main.setBounds(-100, -100, 2000, 1200);
-    // Hintergrund-Dunkelheit für Kontrast
     const darkness = this.add.rectangle(800, 400, 2000, 1200, 0x000000, 0.7);
     darkness.setDepth(-2);
-    // Spieler-Licht folgt
     this.cameras.main.on('cameramove', () => {
       light.x = this.player.x;
       light.y = this.player.y;
