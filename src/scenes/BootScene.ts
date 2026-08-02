@@ -1,37 +1,31 @@
 import { Scene } from 'phaser';
-import { PlaceholderAssetGenerator } from '../systems/AssetGenerator';
-
-/**
- * BootScene – der erste Start-Bereich.
- * Lädt Assets und initialisiert das Spiel.
- */
 
 export class BootScene extends Scene {
-  static readonly KEY = 'BootScene';
-
   constructor() {
-    super(BootScene.KEY);
-  }
-
-  preload(): void {
-    this.load.setPath('assets');
+    super({ key: 'BootScene' });
   }
 
   create(): void {
-    // Generiere alle Platzhalter-Assets
-    PlaceholderAssetGenerator.generatePlayerSpritesheet(this);
-    PlaceholderAssetGenerator.generateWeaponTexture(this);
-    PlaceholderAssetGenerator.generateEnemyTexture(this);
-    PlaceholderAssetGenerator.generateParticleTexture(this);
-    PlaceholderAssetGenerator.generateHitEffectTexture(this);
+    this.generatePlaceholderTextures();
+    this.scene.start('GameScene');
+  }
 
-    // Wechsel zur GameScene
-    // Phaser 3.90: generateTexture ist async, aber textures werden sofort registriert.
-    // Wechsel zur GameScene
-    // Phaser 3.90 generateTexture ist async – Textures brauchen Zeit
-    // 200ms Delay ist sicherer als 100ms für alle Browser
-    this.time.delayedCall(200, () => {
-      this.scene.start('GameScene');
-    });
+  private generatePlaceholderTextures(): void {
+    // Player (blau, 24x32)
+    const playerTex = this.add.renderTexture(0, 0, 24, 32);
+    playerTex.draw(this.add.rectangle(12, 16, 24, 32, 0x3a86ff), 0, 0);
+    playerTex.saveTexture('player');
+    playerTex.destroy();
+
+    // Plattform-Textur (einmalig, wiederverwendbar)
+    const platTex = this.add.renderTexture(0, 0, 1280, 40);
+    platTex.draw(this.add.rectangle(640, 20, 1280, 40, 0x2d1a4d), 0, 0);
+    platTex.saveTexture('platform_large');
+    platTex.destroy();
+
+    const platSmallTex = this.add.renderTexture(0, 0, 120, 20);
+    platSmallTex.draw(this.add.rectangle(60, 10, 120, 20, 0x2d1a4d), 0, 0);
+    platSmallTex.saveTexture('platform_small');
+    platSmallTex.destroy();
   }
 }

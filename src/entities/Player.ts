@@ -27,6 +27,7 @@ export class Player extends Physics.Arcade.Sprite {
   private coyoteTimer: number = 0;
   private jumpBufferTimer: number = 0;
   private wasOnFloor: boolean = false;
+  private _lastHeartbeat: number = 0;
 
   constructor(scene: Scene, x: number, y: number) {
     super(scene, x, y, 'idle_0'); // Platzhalter-Frame
@@ -67,7 +68,13 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   update(delta: number): void {
-    const dt = delta / 1000; // Delta-Zeit in Sekunden
+    const dt = delta / 1000;
+
+    // Heartbeat – only once per second
+    if (Math.floor(performance.now() / 1000) !== this._lastHeartbeat) {
+      this._lastHeartbeat = Math.floor(performance.now() / 1000);
+      console.log('[Player] update() heartbeat, delta:', delta);
+    }
 
     if (!this.inputSystem) return;
 
@@ -185,9 +192,13 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   private handleDash(commands: PlayerCommand, dt: number): void {
-    if (this.dashCooldownTimer > 0) return;
+    if (this.dashCooldownTimer > 0) {
+      this.dashCooldownTimer -= dt;
+    }
 
-    if (commands.dash && !this.isDashing) {
+    // Dash startet nur auf Edge (frisch gedrückt)
+    if (commands.dashJustPressed && !this.isDashing && this.dashCooldownTimer <= 0) {
+      console.log('[Player] Dash started!');
       this.isDashing = true;
       this.dashTimer = this.stats.dashDuration;
       this.dashCooldownTimer = this.stats.dashCooldown;
@@ -207,6 +218,13 @@ export class Player extends Physics.Arcade.Sprite {
       if (this.dashTimer <= 0) {
         this.isDashing = false;
       }
+    }
+
+    // Während Dash gehalten: weiter in die Richtung bewegen
+    if (commands.dash && this.isDashing) {
+      const direction = this.facingRight ? 1 : -1;
+      const body = this.body as Physics.Arcade.Body;
+      body.setVelocityX(direction * this.stats.dashSpeed);
     }
   }
 
@@ -234,6 +252,7 @@ export class Player extends Physics.Arcade.Sprite {
   private handleAttack(commands: PlayerCommand): void {
     if (!this.weapon || !this.inputSystem?.isActionJustPressed('attack')) return;
 
+    console.log('[Player] Attack triggered!');
     const hitboxConfig = this.weapon.attack(this);
     if (hitboxConfig) {
       this.scene.events.emit('playerAttack', this, hitboxConfig);

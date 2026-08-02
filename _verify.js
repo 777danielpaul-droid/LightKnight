@@ -11,53 +11,47 @@ const { launch } = require('puppeteer');
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
   
-  const logs = [];
   page.on('console', msg => {
     const text = msg.text();
-    if (text.includes('DEBUG') || text.includes('Player') || text.includes('GameScene') || text.includes('BootScene')) {
-      logs.push(text);
-      console.log('  ', text);
+    if (!text.includes('[vite]') && !text.includes('%c') && !text.includes('buffer')) {
+      console.log('  ', text.substring(0, 120));
     }
   });
   page.on('pageerror', err => console.log('  ERROR:', err.message));
   
   await page.goto('http://localhost:3000', { waitUntil: 'networkidle0' });
+  await new Promise(r => setTimeout(r, 3000));
   
-  // Warte 1 Sekunde für delayedCall(200) + Initialisierung
-  await new Promise(r => setTimeout(r, 1500));
-  console.log('=== Nach 1500ms ===');
-  
-  // Fokusiere Canvas
+  // Test: Keyboard-Event direkt auf document + logge alle Events
+  console.log('=== Registriere globalen keydown Listener ===');
   await page.evaluate(() => {
-    const canvas = document.querySelector('canvas');
-    if (canvas) { canvas.focus(); canvas.setAttribute('tabindex', '0'); }
+    window.__debug_keys = [];
+    document.addEventListener('keydown', (e) => {
+      window.__debug_keys.push({ code: e.code, key: e.key, target: e.target.tagName });
+      console.log('DOC keydown:', e.code, e.key);
+    }, true); // capture phase
+    
+    window.addEventListener('keydown', (e) => {
+      console.log('WIN keydown:', e.code, e.key);
+    }, true);
   });
   
-  console.log('=== Taste A (bewegen) ===');
-  await page.keyboard.down('a');
-  await new Promise(r => setTimeout(r, 400));
-  await page.keyboard.up('a');
-  
-  console.log('=== Space (springen) ===');
-  await page.keyboard.down('Space');
-  await new Promise(r => setTimeout(r, 300));
-  await page.keyboard.up('Space');
-  
-  console.log('=== J (angriff) ===');
-  await page.keyboard.down('j');
-  await new Promise(r => setTimeout(r, 300));
-  await page.keyboard.up('j');
-  
-  console.log('=== Shift (dash) ===');
+  console.log('=== Sende Shift via window ===');
   await page.keyboard.down('Shift');
   await new Promise(r => setTimeout(r, 300));
   await page.keyboard.up('Shift');
   
+  console.log('=== Sende J via window ===');
+  await page.keyboard.down('j');
   await new Promise(r => setTimeout(r, 300));
-  console.log('=== Tests abgeschlossen, Logs:', logs.length, '===');
+  await page.keyboard.up('j');
   
-  await page.screenshot({ path: '/Users/danielpaul/Desktop/LightKnight/screenshot_test.png' });
-  console.log('Screenshot saved!');
+  await new Promise(r => setTimeout(r, 300));
   
+  // Lese alle gefangenen Events
+  const keys = await page.evaluate(() => window.__debug_keys);
+  console.log('Captured Events:', JSON.stringify(keys));
+  
+  console.log('=== Abgeschlossen ===');
   await browser.close();
 })().catch(console.error);

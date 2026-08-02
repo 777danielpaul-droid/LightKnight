@@ -1,164 +1,69 @@
-/**
- * GameScene – Hauptspielszene.
- * Initialisiert Player HIT, Gegner, Kampf & Ambient-Licht.
- * Sound kommt in Milestone 6 (AudioManager-Integration).
- */
-
-import { Scene, Physics, GameObjects } from 'phaser';
-import { Player } from '../entities/Player';
-import { Enemy } from '../entities/Enemy';
-import { PlayerConfig } from '../config/PlayerConfig';
-import { CombatSystem, HitboxConfig } from '../systems/CombatSystem';
-import { ParticleSystem } from '../systems/ParticleSystem';
+import { Scene, Physics } from 'phaser';
 
 export class GameScene extends Scene {
   static readonly KEY = 'GameScene';
-
-  private player!: Player;
+  private player!: Physics.Arcade.Sprite;
+  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private spaceKey!: Phaser.Input.Keyboard.Key;
+  private shiftKey!: Phaser.Input.Keyboard.Key;
+  private jKey!: Phaser.Input.Keyboard.Key;
   private platforms!: Physics.Arcade.StaticGroup;
-  private enemies: Enemy[] = [];
-  private combatSystem!: CombatSystem;
-  private particleSystem?: ParticleSystem;
-  private hitboxes!: Physics.Arcade.Group;
-  private levelExit?: GameObjects.Zone;
 
   constructor() {
     super(GameScene.KEY);
   }
 
   create(): void {
-    this.setupWorld();
-    this.setupPlayer();
-    this.setupParticles();
-    this.setupEnemies();
-    this.setupCombat();
-    this.setupLevelExit();
-    this.setupAmbientLight();
-
-    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
-  }
-
-  update(time: number, delta: number): void {
-    this.player.update(delta);
-    this.enemies.forEach(enemy => enemy.update(delta));
-
-    // Hitbox-Position updaten
-    this.hitboxes.getChildren().forEach((child) => {
-      const sprite = child as Physics.Arcade.Sprite;
-      if (sprite.body) {
-        const b = sprite.body as Physics.Arcade.Body;
-        sprite.x += b.velocity.x * (delta / 1000);
-      }
-    });
-  }
-
-  private setupWorld(): void {
     this.cameras.main.setBackgroundColor('#0a0f2b');
+
+    // Platform-Gruppe (nutzt Textur-Keys von BootScene)
     this.platforms = this.physics.add.staticGroup();
-
-    const createPlatform = (x: number, y: number, w: number, h: number): void => {
-      const rect = this.add.rectangle(x, y, w, h, 0x2d1a4d, 0.8);
-      this.platforms.add(rect);
-    };
-
-    createPlatform(640, 650, 1280, 40);   // Boden
-    createPlatform(200, 490, 200, 20);    // Plattform 1
-    createPlatform(600, 390, 200, 20);    // Plattform 2
-    createPlatform(300, 290, 150, 20);    // Plattform 3
-
+    this.platforms.create(640, 680, 'platform_large');   // Boden
+    this.platforms.create(200, 500, 'platform_small');  // Plattform 1
+    this.platforms.create(600, 400, 'platform_small');  // Plattform 2
     this.platforms.refresh();
-  }
 
-  private setupPlayer(): void {
-    this.player = new Player(this, PlayerConfig.startX, PlayerConfig.startY);
-    this.player.initInput(this);
+    // Player
+    this.player = this.physics.add.sprite(200, 590, 'player');
+    this.player.setCollideWorldBounds(true);
     this.physics.add.collider(this.player, this.platforms);
 
-    this.events.on('playerAttack', (attacker: Player, config: HitboxConfig) => {
-      this.createPlayerHitbox(attacker, config);
-    });
+    // Input
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    this.jKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
+
+    // Focus Canvas for input
+    this.game.canvas.tabIndex = 1;
+    this.game.canvas.focus();
+
+    this.cameras.main.startFollow(this.player);
   }
 
-  private createPlayerHitbox(attacker: Player, config: HitboxConfig): void {
-    const direction = attacker.flipX ? -1 : 1;
-    const hitbox = this.add.zone(
-      attacker.x + config.offsetX * direction,
-      attacker.y + config.offsetY,
-      config.width,
-      config.height
-    );
+  update(): void {
+    if (!this.player.body) return;
+    const body = this.player.body as Physics.Arcade.Body;
 
-    this.physics.world.enable(hitbox);
-    const body = hitbox.body as Physics.Arcade.Body;
-    body.setAllowGravity(false);
-    body.setImmovable(true);
-    body.setVelocityX(config.knockbackDirection * 50);
-    this.hitboxes.add(hitbox);
+    // Movement (A/D / Pfeiltasten)
+    if (this.cursors.left?.isDown) {
+      this.player.setVelocityX(-200);
+      this.player.setFlipX(false);
+    } else if (this.cursors.right?.isDown) {
+      this.player.setVelocityX(200);
+      this.player.setFlipX(true);
+    } else if (body.onFloor()) {
+      this.player.setVelocityX(0);
+    }
 
-    this.time.delayedCall(150, () => {
-      if (hitbox.scene) hitbox.destroy();
-    });
-  }
+    // Jump (Space)
+    if (this.spaceKey.isDown && body.onFloor()) {
+      this.player.setVelocityY(-400);
+    }
 
-  private setupEnemies(): void {
-    const enemy1 = new Enemy(this, 150, 440, { maxHealth: 2, invincibilityDuration: 0.5 });
-    this.physics.add.collider(enemy1, this.platforms);
-    this.enemies.push(enemy1);
-
-    const enemy2 = new Enemy(this, 550, 340, { maxHealth: 2, invincibilityDuration: 0.5 });
-    this.physics.add.collider(enemy2, this.platforms);
-    this.enemies.push(enemy2);
-  }
-
-  private setupCombat(): void {
-    this.combatSystem = new CombatSystem(this);
-    this.hitboxes = this.physics.add.group();
-
-    this.physics.add.overlap(this.hitboxes, this.enemies, (hitboxObj, enemyObj) => {
-      const hitboxSprite = hitboxObj as Physics.Arcade.Sprite;
-      const enemy = enemyObj as Enemy;
-
-      if (enemy.isAlive()) {
-        enemy.takeDamage(1, hitboxSprite.body.velocity.x > 0 ? 1 : -1, 150);
-        if (!enemy.isAlive()) enemy.destroy();
-        hitboxSprite.destroy();
-      }
-    });
-  }
-
-  private setupParticles(): void {
-    this.particleSystem = new ParticleSystem(this);
-  }
-
-  private setupLevelExit(): void {
-    this.levelExit = this.add.zone(375, 275, 30, 10);
-    this.physics.world.enable(this.levelExit);
-    (this.levelExit.body as Physics.Arcade.Body).setAllowGravity(false);
-    (this.levelExit.body as Physics.Arcade.Body).setImmovable(true);
-
-    // Exit-Zeichen (Bordeaux)
-    this.add.rectangle(375, 275, 30, 10, 0x7b1e2b, 0.6);
-
-    this.physics.add.overlap(this.player, this.levelExit, () => {
-      this.handleLevelComplete();
-    });
-  }
-
-  private setupAmbientLight(): void {
-    const light = this.add.circle(0, 0, 400, 0x00f0ff, 0.12);
-    light.setDepth(-1);
-    this.cameras.main.setBounds(-100, -100, 2000, 1200);
-    const darkness = this.add.rectangle(800, 400, 2000, 1200, 0x000000, 0.7);
-    darkness.setDepth(-2);
-    this.cameras.main.on('cameramove', () => {
-      light.x = this.player.x;
-      light.y = this.player.y;
-    });
-  }
-
-  private handleLevelComplete(): void {
-    this.cameras.main.shake(300, 0.01);
-    this.cameras.main.zoomTo(1.2, 300);
-    this.scene.start('GameScene');
+    // Dash (Shift) – placeholder
+    if (this.shiftKey.isDown) { /* Dash später */ }
+    // Attack (J) – placeholder
+    if (this.jKey.isDown) { /* Attack später */ }
   }
 }
