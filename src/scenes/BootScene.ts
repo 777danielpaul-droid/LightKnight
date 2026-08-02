@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import { PlaceholderAssetGenerator } from '../systems/AssetGenerator';
 
 /**
  * BootScene – der erste Start-Bereich.
@@ -13,20 +14,18 @@ export class BootScene extends Scene {
   }
 
   preload(): void {
-    // Platzhalter für spätere Asset-Preload-Logik
     this.load.setPath('assets');
-    // this.load.image('atlas', 'sprites/player-atlas.json');
   }
 
   create(): void {
-    // Generiere Platzhalter-Textur für Player (32x48 blaue Box)
-    const gfx = this.add.graphics({ x: 0, y: 0 });
-    gfx.fillStyle(0x00aaff);
-    gfx.fillRect(0, 0, 32, 48);
-    gfx.generateTexture('player_idle', 32, 48);
-    gfx.destroy();
+    // Generiere alle Platzhalter-Assets
+    PlaceholderAssetGenerator.generatePlayerSpritesheet(this);
+    PlaceholderAssetGenerator.generateWeaponTexture(this);
+    PlaceholderAssetGenerator.generateEnemyTexture(this);
+    PlaceholderAssetGenerator.generateParticleTexture(this);
+    PlaceholderAssetGenerator.generateHitEffectTexture(this);
 
-    // Wechsle zur GameScene
+    // Wechsel zur GameScene (async für sichere Texture-Registrierung)
     this.scene.start('GameScene');
   }
 }

@@ -1,18 +1,22 @@
 /**
  * Player – HIT, der blau farbene humanoide Tiger.
- * Phaser-Entity mit Arcade-Physik, Bewegung, Dash, Sprung & Animationen.
+ * Phaser-Entity mit Arcade-Physik, Bewegung, Dash, Sprung, Animation & Kampf.
  */
 
-import { Physics } from 'phaser';
+import { Physics, Scene } from 'phaser';
 import { PlayerConfig } from '../config/PlayerConfig';
 import { createMovementStats, MovementStats } from '../components/MovementStats';
+import { HealthComponent, HealthConfig } from '../components/HealthComponent';
 import { InputSystem, PlayerCommand } from '../systems/InputSystem';
-import { Scene } from 'phaser';
+import { AnimationSystem, AnimationState } from '../systems/AnimationSystem';
+import { Weapon } from './Weapon';
 
 export class Player extends Physics.Arcade.Sprite {
   private stats: MovementStats;
-  private inputSystem: InputSystem;
-  private currentHealth: number;
+  private inputSystem?: InputSystem;
+  private health: HealthComponent;
+  private animationSystem: AnimationSystem;
+  private weapon?: Weapon;
 
   // Bewegungs-States
   private isDashing: boolean = false;
@@ -25,9 +29,13 @@ export class Player extends Physics.Arcade.Sprite {
   private wasOnFloor: boolean = false;
 
   constructor(scene: Scene, x: number, y: number) {
-    super(scene, x, y, 'player_idle'); // Platzhalter-Textur
+    super(scene, x, y, 'idle_0'); // Platzhalter-Frame
     this.stats = createMovementStats();
-    this.currentHealth = PlayerConfig.maxHealth;
+    this.health = new HealthComponent({
+      maxHealth: PlayerConfig.maxHealth,
+      invincibilityDuration: PlayerConfig.invincibilityDuration
+    } as HealthConfig);
+    this.animationSystem = new AnimationSystem(scene);
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -42,6 +50,7 @@ export class Player extends Physics.Arcade.Sprite {
    */
   initInput(scene: Scene): void {
     this.inputSystem = new InputSystem(scene);
+    this.weapon = new Weapon(scene, this.x, this.y);
   }
 
   private setupPhysics(): void {
@@ -54,11 +63,14 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   private setupAnimations(): void {
-    // Animierungen werden in Milestone 2 / 3 mit echten Sprites hinzugefügt
+    this.play('player_idle_anim', true);
   }
 
   update(delta: number): void {
     const dt = delta / 1000; // Delta-Zeit in Sekunden
+
+    if (!this.inputSystem) return;
+
     this.inputSystem.update();
     const commands = this.inputSystem.getPlayerCommands();
 
@@ -66,7 +78,15 @@ export class Player extends Physics.Arcade.Sprite {
     this.handleMovement(commands, dt);
     this.handleJump(commands, dt);
     this.handleDash(commands, dt);
+    this.handleAttack(commands);
     this.updateAnimation();
+
+    // Weapon-Update
+    if (this.weapon) {
+      this.weapon.update(delta);
+      this.weapon.x = this.x;
+      this.weapon.y = this.y;
+    }
   }
 
   private handleTimers(dt: number): void {
@@ -189,27 +209,59 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   private updateAnimation(): void {
-    // Animationen kommen in Milestone 2
+    const body = this.body as Physics.Arcade.Body;
+
+    if (this.isDashing) {
+      this.animationSystem.play(this, 'dash');
+    } else if (!body.onFloor()) {
+      if (body.velocity.y < 0) {
+        this.animationSystem.play(this, 'jump');
+      } else {
+        this.animationSystem.play(this, 'fall');
+      }
+    } else {
+      const moveInput = (this.inputSystem?.isActionDown('moveRight') ? 1 : 0) - (this.inputSystem?.isActionDown('moveLeft') ? 1 : 0);
+      if (moveInput !== 0) {
+        this.animationSystem.play(this, 'run');
+      } else {
+        this.animationSystem.play(this, 'idle');
+      }
+    }
   }
 
-  /**
-   * Nimmt Schaden – gibt I-Frames zurück für Unverwundbarkeit.
-   */
+  private handleAttack(commands: PlayerCommand): void {
+    if (!this.weapon || !this.inputSystem?.isActionJustPressed('attack')) return;
+
+    const hitboxConfig = this.weapon.attack(this);
+    if (hitboxConfig) {
+      // Spawn Hitbox (wird vom CombatSystem in GameScene verarbeitet)
+      this.scene.events.emit('playerAttack', this, hitboxConfig);
+    }
+  }
+
   takeDamage(amount: number): boolean {
-    this.currentHealth -= amount;
-    this.currentHealth = Math.max(0, this.currentHealth);
-    return this.currentHealth > 0;
+    const alive = this.health.takeDamage(amount, Date.now() / 1000);
+    return alive;
+  }
+
+  isAlive(): boolean {
+    return this.health.isAlive();
   }
 
   getHealth(): number {
-    return this.currentHealth;
+    return this.health.current;
   }
 
   getMaxHealth(): number {
     return PlayerConfig.maxHealth;
   }
 
-  getInputSystem(): InputSystem {
+  getInputSystem(): InputSystem | undefined {
     return this.inputSystem;
   }
+
+  getWeapon(): Weapon | undefined {
+    return this.weapon;
+  }
 }
+
