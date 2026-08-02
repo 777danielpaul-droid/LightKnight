@@ -1,5 +1,6 @@
 import { Types } from 'phaser';
 import { BootScene } from '../scenes/BootScene';
+import { GameScene } from '../scenes/GameScene';
 
 /**
  * Zentrale Spiel-Konfiguration.
@@ -22,5 +23,5 @@ export const GameConfig: Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH
   },
-  scene: [BootScene]
+  scene: [BootScene, GameScene]
 };

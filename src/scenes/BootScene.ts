@@ -15,10 +15,11 @@ export class BootScene extends Scene {
   preload(): void {
     // Platzhalter für spätere Asset-Preload-Logik
     this.load.setPath('assets');
-    // this.load.image('atlas', 'sprites/player atlas.json');
+    // this.load.image('atlas', 'sprites/player-atlas.json');
   }
 
   create(): void {
+    // Alle Szenen sind registriert – wechsle zur GameScene
     this.scene.start('GameScene');
   }
 }
