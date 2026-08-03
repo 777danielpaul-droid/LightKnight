@@ -1,69 +1,187 @@
+/**
+ * GameScene – Haupt-Gameplay-Szene.
+ * Nutzt das ECS-Entity-System: Player (mit InputSystem, AnimationSystem, CombatSystem)
+ * und Enemy-Entities mit Patrouillen-KI.
+ */
+
 import { Scene, Physics } from 'phaser';
+import { Player } from '../entities/Player';
+import { Enemy } from '../entities/Enemy';
+import { HitboxConfig } from '../systems/CombatSystem';
+import { AudioManager } from '../systems/AudioManager';
+import { EnemyConfig } from '../data/enemy-config';
+import { PlayerConfig } from '../config/PlayerConfig';
+import { HealthConfig } from '../components/HealthComponent';
+import { ActiveLevel, LevelPlatform, LevelEnemy, LevelCollectible } from '../data/level-config';
 
 export class GameScene extends Scene {
   static readonly KEY = 'GameScene';
-  private player!: Physics.Arcade.Sprite;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private spaceKey!: Phaser.Input.Keyboard.Key;
-  private shiftKey!: Phaser.Input.Keyboard.Key;
-  private jKey!: Phaser.Input.Keyboard.Key;
+
+  private player!: Player;
   private platforms!: Physics.Arcade.StaticGroup;
+  private enemies!: Physics.Arcade.Group;
+  private audioManager!: AudioManager;
 
   constructor() {
     super(GameScene.KEY);
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor('#0a0f2b');
+    this.cameras.main.setBackgroundColor(ActiveLevel.backgroundColor);
 
-    // Platform-Gruppe (nutzt Textur-Keys von BootScene)
+    // --- Platform-Gruppe ---
     this.platforms = this.physics.add.staticGroup();
-    this.platforms.create(640, 680, 'platform_large');   // Boden
-    this.platforms.create(200, 500, 'platform_small');  // Plattform 1
-    this.platforms.create(600, 400, 'platform_small');  // Plattform 2
-    this.platforms.refresh();
+    this.spawnPlatforms(ActiveLevel.platforms);
 
-    // Player
-    this.player = this.physics.add.sprite(200, 590, 'player');
-    this.player.setCollideWorldBounds(true);
+    // --- Systems ---
+    this.audioManager = new AudioManager(this);
+
+    // --- Player (ECS-Entity) ---
+    this.player = new Player(this, PlayerConfig.startX, PlayerConfig.startY);
     this.physics.add.collider(this.player, this.platforms);
 
-    // Input
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    this.shiftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-    this.jKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.J);
+    // Input muss nach scene.input verfügbar sein (nach BootScene)
+    this.player.initInput(this);
 
-    // Focus Canvas for input
+    // --- Enemies ---
+    this.enemies = this.physics.add.group();
+    this.spawnEnemiesFromLevel(ActiveLevel.enemies);
+
+    this.physics.add.collider(this.enemies, this.platforms);
+    this.physics.add.collider(this.player, this.enemies, (playerObj, enemyObj) => {
+      const playerSprite = playerObj as Player;
+      const enemy = enemyObj as Enemy;
+      // Spieler nimmt Schaden wenn er dem Gegner gegenläuft
+      playerSprite.takeDamage(enemy.getDamage());
+    });
+
+    // --- Collectibles ---
+    this.spawnCollectibles(ActiveLevel.collectibles);
+
+    // --- Combat-Detection ---
+    this.setupCombat();
+
+    // --- Camera ---
+    this.cameras.main.startFollow(this.player, true);
+
+    // Registriere Player beim AudioManager für spatiales Audio
+    this.audioManager.registerPlayer(this.player.x, this.player.y);
+
+    // Fokus fürs Keyboard-Input
     this.game.canvas.tabIndex = 1;
     this.game.canvas.focus();
 
-    this.cameras.main.startFollow(this.player);
+    // Ambient-Loop starten
+    this.audioManager.resume();
   }
 
-  update(): void {
-    if (!this.player.body) return;
-    const body = this.player.body as Physics.Arcade.Body;
+  private setupCombat(): void {
+    // Wenn der Spieler angreift: Hitbox erstellen + Sound abspielen
+    this.events.on('playerAttack', (attacker: Player, hitboxConfig: HitboxConfig) => {
+      // Erstelle Hitbox an der richtigen Position
+      const direction = attacker.flipX ? -1 : 1;
+      const hitboxX = attacker.x + hitboxConfig.offsetX * direction;
+      const hitboxY = attacker.y + hitboxConfig.offsetY;
 
-    // Movement (A/D / Pfeiltasten)
-    if (this.cursors.left?.isDown) {
-      this.player.setVelocityX(-200);
-      this.player.setFlipX(false);
-    } else if (this.cursors.right?.isDown) {
-      this.player.setVelocityX(200);
-      this.player.setFlipX(true);
-    } else if (body.onFloor()) {
-      this.player.setVelocityX(0);
-    }
+      const hitbox = this.add.zone(hitboxX, hitboxY, hitboxConfig.width, hitboxConfig.height);
+      this.physics.world.enable(hitbox);
+      const body = hitbox.body as Physics.Arcade.Body;
+      body.setAllowGravity(false);
+      body.setImmovable(true);
+      body.setVelocity(0, 0);
 
-    // Jump (Space)
-    if (this.spaceKey.isDown && body.onFloor()) {
-      this.player.setVelocityY(-400);
-    }
+      // Sound abspielen
+      this.audioManager.playSFX('sfx_attack', attacker.x, attacker.y);
 
-    // Dash (Shift) – placeholder
-    if (this.shiftKey.isDown) { /* Dash später */ }
-    // Attack (J) – placeholder
-    if (this.jKey.isDown) { /* Attack später */ }
+      // Prüfe Überlappung mit Gegnern — nutze processCallback für genaue Kontrolle
+      this.physics.world.overlap(
+        hitbox,
+        this.enemies,
+        (hitboxObj, enemyObj) => {
+          void hitboxObj;
+          const enemy = enemyObj as Enemy;
+          const direction = attacker.flipX ? -1 : 1;
+          const wasAlive = enemy.takeDamage(
+            hitboxConfig.damage,
+            direction,
+            hitboxConfig.knockbackForce
+          );
+          this.audioManager.playSFX('sfx_hit', enemy.x, enemy.y);
+
+          // Hit-Effect an der Trefferposition
+          this.events.emit('enemyHit', enemy.x, enemy.y);
+
+          // Nur zerstören, wenn der Gegner wirklich tot ist
+          if (!wasAlive) {
+            enemy.destroy();
+          }
+        }
+      );
+
+      // Hitbox nach 200ms zerstören
+      this.time.delayedCall(200, () => {
+        hitbox.destroy();
+      });
+    });
+
+    // Dash-Sound
+    this.events.on('playerDash', (_x: number, _y: number) => {
+      void _x;
+      void _y;
+      this.audioManager.playSFX('sfx_dash');
+    });
+  }
+
+  private spawnPlatforms(platforms: LevelPlatform[]): void {
+    platforms.forEach((p) => {
+      const texKey = p.type === 'large' ? 'platform_large' : 'platform_small';
+      this.platforms.create(p.x, p.y, texKey);
+    });
+    this.platforms.refresh();
+  }
+
+  private spawnEnemiesFromLevel(enemies: LevelEnemy[]): void {
+    enemies.forEach((e) => {
+      const typeDefaults = EnemyConfig.types[e.type];
+      const config: HealthConfig = {
+        maxHealth: typeDefaults.health,
+        invincibilityDuration: EnemyConfig.invincibilityDuration
+      };
+      const enemy = new Enemy(this, e.x, e.y, config, e.type);
+      this.enemies.add(enemy);
+    });
+  }
+
+  private spawnCollectibles(collectibles: LevelCollectible[]): void {
+    collectibles.forEach((c) => {
+      // Platzhalter: erstelle ein sichtbares Collectible-Sprite
+      const item = this.add.rectangle(c.x, c.y, 16, 16, 0xffaa00);
+      this.physics.add.existing(item, true); // static body
+
+      // Bei Kollision mit Spieler:heilen/beschleunigen
+      this.physics.add.overlap(this.player, item, () => {
+        if (c.type === 'health') {
+          // Spieler-Heilung (wird später über HealthComponent implementiert)
+          this.events.emit('collectiblePickup', c.type, c.x, c.y);
+        } else if (c.type === 'speed_boost') {
+          this.events.emit('collectiblePickup', c.type, c.x, c.y);
+        }
+        item.destroy();
+      });
+    });
+  }
+
+  update(time: number, delta: number): void {
+    void time;
+    this.player.update(delta);
+
+    // Alle Gegner updaten
+    this.enemies.getChildren().forEach((child) => {
+      const enemy = child as Enemy;
+      enemy.update(delta);
+    });
+
+    // AudioManager aktualisieren
+    this.audioManager.update(this.player.x, this.player.y);
   }
 }

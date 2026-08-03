@@ -31,6 +31,8 @@ export class Weapon extends Physics.Arcade.Sprite {
   /**
    * Führt einen Nahkampfangriff aus.
    * @returns Hitbox-Konfiguration, die vom CombatSystem verarbeitet wird.
+   *   offsetX ist immer positiv (relativ zum Spieler); die Richtung
+   *   (links/rechts) wird vom CombatSystem basierend auf flipX berechnet.
    */
   attack(attacker: Physics.Arcade.Sprite): HitboxConfig | null {
     if (!this.canAttack()) return null;
@@ -40,7 +42,7 @@ export class Weapon extends Physics.Arcade.Sprite {
     return {
       width: 40,
       height: 30,
-      offsetX: attacker.flipX ? -24 : 24,
+      offsetX: 24,  // immer positiv – Richtung wird über flipX bestimmt
       offsetY: 10,
       damage: 1,
       knockbackForce: 150,

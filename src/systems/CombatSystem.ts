@@ -27,11 +27,9 @@ export interface HitboxConfig {
 
 export class CombatSystem {
   private scene: Scene;
-  private hitboxes: Physics.Arcade.Group;
 
   constructor(scene: Scene) {
     this.scene = scene;
-    this.hitboxes = scene.physics.add.group();
   }
 
   /**
@@ -70,16 +68,13 @@ export class CombatSystem {
    * Wird als Callback an .overlap() übergeben.
    */
   static checkHit(
-    hitboxBody: Physics.Arcade.Body,
-    targetBody: Physics.Arcade.Body,
-    targetHealth: HealthComponent,
     target: Combatant,
     damage: number,
     knockbackDirection: number,
     knockbackForce: number,
     currentTime: number
   ): boolean {
-    if (!targetHealth.takeDamage(damage, currentTime)) {
+    if (!target.health.takeDamage(damage, currentTime)) {
       return false; // death - already handled by emit
     }
 
@@ -91,21 +86,26 @@ export class CombatSystem {
    * Registriert eine Attack-Collision zwischen Hitbox-Group und Ziel-Gruppe.
    */
   setupAttackCollision(
-    attackerGroup: Physics.Arcade.Group,
-    targetGroup: Physics.Arcade.Group,
-    config: HitboxConfig
+    _attackerGroup: Physics.Arcade.Group,
+    _targetGroup: Physics.Arcade.Group,
+    _config: HitboxConfig
   ): void {
-    this.scene.physics.add.overlap(
-      attackerGroup,
-      targetGroup,
-      (hitboxObj, targetObj) => {
-        const hitboxBody = hitboxObj as Physics.Arcade.Body;
-        const targetBody = (targetObj as Physics.Arcade.Sprite).body as Physics.Arcade.Body;
-        const targetSprite = targetObj as Physics.Arcade.Sprite;
-        // Hier würde HealthComponent-Logik laufen – in Enemy implementieren
-      },
-      undefined,
-      this
-    );
+    void _attackerGroup;
+    void _targetGroup;
+    void _config;
+    // In GameScene.setupCombat wird overlap direkt verwendet.
+    // Diese Methode ist für zukünftige Erweiterungen reserviert.
+  }
+
+  /**
+   * Hilfsfunktion: erzeugt eine visuelle Hitbox-Zone (für Debug).
+   */
+  createDebugHitbox(x: number, y: number, width: number, height: number): Physics.Arcade.Body {
+    const zone = this.scene.add.zone(x, y, width, height);
+    this.scene.physics.world.enable(zone);
+    const body = zone.body as Physics.Arcade.Body;
+    body.setAllowGravity(false);
+    body.setImmovable(true);
+    return body;
   }
 }

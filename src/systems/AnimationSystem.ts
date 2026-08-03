@@ -47,8 +47,7 @@ export class AnimationSystem {
         PlaceholderAssetGenerator.generatePlayerFrame(
           this.scene,
           `${state}_${i}`,
-          config.color,
-          i
+          config.color
         );
       }
     });
@@ -63,7 +62,7 @@ export class AnimationSystem {
   };
 
   private createAnimations(): void {
-    Object.entries(this.animConfigs).forEach(([state, config]) => {
+    Object.values(this.animConfigs).forEach((config) => {
       this.scene.anims.create({
         key: config.key,
         frames: config.textures.map(tex => ({ key: tex })),

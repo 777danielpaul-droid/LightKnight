@@ -18,7 +18,7 @@ export class PlaceholderAssetGenerator {
     const colors = [0x00aaff, 0x0099e6, 0x0088cc, 0x0077b3]; // Abwechslung für Animation
 
     for (let i = 0; i < frames; i++) {
-      gfx.fillStyle(colors[i]);
+      gfx.fillStyle(colors[i]!);
       gfx.fillRect(i * frameW, 0, frameW, frameH);
       // Auge (weißer Punkt)
       gfx.fillStyle(0xffffff);
@@ -62,7 +62,7 @@ export class PlaceholderAssetGenerator {
     gfx.destroy();
   }
 
-  static generatePlayerFrame(scene: Scene, key: string, color: number, frameIndex: number): void {
+  static generatePlayerFrame(scene: Scene, key: string, color: number): void {
     const frameW = 32;
     const frameH = 48;
     const gfx = scene.add.graphics({ x: 0, y: 0 });

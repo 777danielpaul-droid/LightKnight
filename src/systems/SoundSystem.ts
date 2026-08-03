@@ -13,22 +13,15 @@ interface SoundConfig {
   decay?: number; // Sekunden, über die der Sound verlischt
 }
 
-interface ActiveSound {
-  source: AudioBufferSourceNode;
-  gain: GainNode;
-  config: SoundConfig;
-}
-
 export class SoundSystem {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private categoryGains: Map<SoundCategory, GainNode> = new Map();
   private sounds: Map<string, AudioBuffer> = new Map();
-  private activeSounds: Map<string, ActiveSound> = new Map();
   private muted: boolean = false;
 
   constructor() {
-    this.init().catch(console.error);
+    void this.init().catch(console.error);
   }
 
   /**
@@ -119,39 +112,43 @@ export class SoundSystem {
   /**
    * Spiele einen registrierten Sound ab.
    */
-  play(name: string, customVolume?: number): Promise<void> {
-    return new Promise(async (resolve) => {
-      if (!this.ctx || !this.sounds.has(name) || this.muted) {
-        resolve();
-        return;
-      }
+  async play(name: string, customVolume?: number): Promise<void> {
+    if (!this.ctx || !this.sounds.has(name) || this.muted) {
+      return;
+    }
 
-      // Resume AudioContext bei Bedarf
-      if (this.ctx.state === 'suspended') {
-        await this.ctx.resume();
-      }
+    // Resume AudioContext bei Bedarf
+    if (this.ctx.state === 'suspended') {
+      await this.ctx.resume();
+    }
 
-      const buffer = this.sounds.get(name)!;
-      const source = this.ctx.createBufferSource();
-      source.buffer = buffer;
+    const config = this.getSoundConfig(name);
+    const categoryGain = this.categoryGains.get(config.category) ?? this.masterGain;
 
-      const config = this.getSoundConfig(name);
-      const categoryGain = this.categoryGains.get(config.category);
+    await this.playBuffer(this.sounds.get(name)!, categoryGain, customVolume);
+  }
 
-      if (categoryGain) {
-        source.connect(categoryGain);
-      } else {
-        source.connect(this.masterGain!);
-      }
+  private async playBuffer(
+    buffer: AudioBuffer,
+    destination: GainNode | null,
+    customVolume?: number
+  ): Promise<void> {
+    if (!this.ctx || !destination) return;
 
-      if (customVolume !== undefined) {
-        const volGain = this.ctx.createGain();
-        volGain.gain.value = customVolume;
-        source.connect(volGain);
-        volGain.connect(categoryGain ? categoryGain : this.masterGain!);
-      }
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
 
-      source.start(0);
+    if (customVolume !== undefined) {
+      const volGain = this.ctx.createGain();
+      volGain.gain.value = customVolume;
+      source.connect(volGain);
+      volGain.connect(destination);
+    } else {
+      source.connect(destination);
+    }
+
+    source.start(0);
+    await new Promise<void>((resolve) => {
       source.onended = () => resolve();
     });
   }
@@ -203,6 +200,7 @@ export class SoundSystem {
       attack: 0.01,
       decay: 0.29
     });
+
     await this.generateSound('sfx_land', {
       type: 'sine',
       frequency: 120,
@@ -210,6 +208,7 @@ export class SoundSystem {
       attack: 0,
       decay: 0.3
     });
+
     await this.generateSound('sfx_attack', {
       type: 'sawtooth',
       frequency: 400,
@@ -217,6 +216,7 @@ export class SoundSystem {
       attack: 0,
       decay: 0.2
     });
+
     await this.generateSound('sfx_dash', {
       type: 'noise',
       frequency: 200,
@@ -224,6 +224,7 @@ export class SoundSystem {
       attack: 0,
       decay: 0.4
     });
+
     await this.generateSound('sfx_hit', {
       type: 'square',
       frequency: 80,
@@ -231,6 +232,7 @@ export class SoundSystem {
       attack: 0,
       decay: 0.2
     });
+
     await this.generateSound('sfx_step', {
       type: 'noise',
       frequency: 100,
@@ -238,6 +240,7 @@ export class SoundSystem {
       attack: 0,
       decay: 0.05
     });
+
     await this.generateSound('music_intro', {
       type: 'sine',
       frequency: 60,
@@ -245,6 +248,7 @@ export class SoundSystem {
       attack: 0.1,
       decay: 0.4
     });
+
     await this.generateSound('ui_menu_open', {
       type: 'triangle',
       frequency: 800,

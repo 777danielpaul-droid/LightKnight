@@ -1,6 +1,15 @@
 /**
  * InputSystem – Phaser Keyboard-Tracking.
- * Nutzt scene.input.keyboard für native Phaser-Key-Events.
+ *
+ * Primäre Eingabequelle sind native window/document Listener
+ * (zuverlässig im Headless-Modus). Phaser Key-Objects dienen als
+ * Sekundärquelle/Fallback.
+ *
+ * Edge-Detection (justPressed):
+ * - Die native keydown/keyup-Listener aktualisieren keysDown in Echtzeit
+ *   und setzen keysJustPressed beim Übergang von false→true.
+ * - update() synchronisiert Phaser Key-Status (OR-Logik für Headless).
+ * - getPlayerCommands() liest keysJustPressed und resettet danach.
  */
 
 import { Scene, Input } from 'phaser';
@@ -40,8 +49,10 @@ const KEY_TO_CODE: Record<string, string> = {
 
 export class InputSystem {
   private keyObjects: Map<string, Input.Keyboard.Key> = new Map();
+  /** Aktueller gehaltener Key-Status (true = gedrückt) */
   private keysDown: Map<string, boolean> = new Map();
-  private prevKeysDown: Map<string, boolean> = new Map();
+  /** Keys, die gerade neu gedrückt wurden (Edge, wird nach Lesen zurückgesetzt) */
+  private keysJustPressed: Map<string, boolean> = new Map();
 
   constructor(scene: Scene) {
     this.setupKeys(scene);
@@ -49,6 +60,9 @@ export class InputSystem {
   }
 
   private setupKeys(scene: Scene): void {
+    const keyboard = scene.input?.keyboard;
+    if (!keyboard) return;
+
     const allUniqueKeys = new Set<string>();
     Object.values(InputConfig).forEach((keys) => {
       keys.forEach((k) => allUniqueKeys.add(k));
@@ -57,8 +71,8 @@ export class InputSystem {
     allUniqueKeys.forEach((key) => {
       const code = KEY_TO_CODE[key] || key;
       this.keysDown.set(code, false);
-      this.prevKeysDown.set(code, false);
-      const keyObj = scene.input.keyboard.addKey(code);
+      this.keysJustPressed.set(code, false);
+      const keyObj = keyboard.addKey(code);
       this.keyObjects.set(code, keyObj);
     });
   }
@@ -68,56 +82,57 @@ export class InputSystem {
    * nicht immer ab. Wir lauschen auf window + document Level.
    */
   private setupNativeFallback(_scene: Scene): void {
-    const handle = (code: string, isDown: boolean) => {
+    void _scene;
+
+    const handleKeyDown = (code: string) => {
       if (this.keysDown.has(code)) {
-        this.keysDown.set(code, isDown);
+        const wasDown = this.keysDown.get(code) === true;
+        this.keysDown.set(code, true);
+        // Nur als justPressed markieren, wenn er vorher nicht gedrückt war
+        if (!wasDown) {
+          this.keysJustPressed.set(code, true);
+        }
+      }
+    };
+
+    const handleKeyUp = (code: string) => {
+      if (this.keysDown.has(code)) {
+        this.keysDown.set(code, false);
       }
     };
 
     window.addEventListener('keydown', (e) => {
-      handle(e.code, true);
+      handleKeyDown(e.code);
     });
     window.addEventListener('keyup', (e) => {
-      handle(e.code, false);
+      handleKeyUp(e.code);
     });
 
     // Document-Level (Puppeteer sendet dort rein)
     document.addEventListener('keydown', (e) => {
-      handle(e.code, true);
+      handleKeyDown(e.code);
     });
     document.addEventListener('keyup', (e) => {
-      handle(e.code, false);
+      handleKeyUp(e.code);
     });
   }
 
   /**
-   * Aktualisiert internen Zustand basierend auf Phaser-Key-Status.
-   * Muss pro Frame aufgerufen werden.
+   * Aktualisiert internen Zustand. Muss pro Frame aufgerufen werden.
+   * Synchronisiert Phaser Key-Status via OR-Logik (für Headless-Fallback).
    */
   update(): void {
-    // Swap: prev = old current
-    const oldKeys = new Map(this.keysDown);
-
-    // Phaser Key-Status (überschreibt nur, wenn Phaser aktiv ist)
-    let phaserUpdated = false;
+    // Phaser Key-Status synchronisieren (OR mit nativen Events)
     this.keyObjects.forEach((keyObj, code) => {
-      if (keyObj.isDown) {
-        this.keysDown.set(code, true);
-        phaserUpdated = true;
-      }
+      const phaserDown = keyObj.isDown;
+      const nativeDown = this.keysDown.get(code) === true;
+      this.keysDown.set(code, phaserDown || nativeDown);
     });
-
-    // Falls Phaser nichts aktualisiert hat → native Events sind Autorität
-    // (im Headless-Modus fängt Phaser nichts ab)
-    if (!phaserUpdated) {
-      // keysDown bleibt von native Listeners aktualisiert
-    }
-
-    this.prevKeysDown = oldKeys;
   }
 
   isActionDown(action: ActionName): boolean {
     const keyList = InputConfig[action];
+    if (!keyList) return false;
     return keyList.some((k) => {
       const code = KEY_TO_CODE[k] || k;
       return this.keysDown.get(code) === true;
@@ -126,12 +141,19 @@ export class InputSystem {
 
   isActionJustPressed(action: ActionName): boolean {
     const keyList = InputConfig[action];
-    return keyList.some((k) => {
+    if (!keyList) return false;
+    const result = keyList.some((k) => {
       const code = KEY_TO_CODE[k] || k;
-      const curr = this.keysDown.get(code);
-      const prev = this.prevKeysDown.get(code);
-      return curr === true && prev !== true;
+      return this.keysJustPressed.get(code) === true;
     });
+    // Reset nach Lesen (einmalige Abfrage pro Frame)
+    if (result) {
+      keyList.forEach((k) => {
+        const code = KEY_TO_CODE[k] || k;
+        this.keysJustPressed.set(code, false);
+      });
+    }
+    return result;
   }
 
   getPlayerCommands(): PlayerCommand {

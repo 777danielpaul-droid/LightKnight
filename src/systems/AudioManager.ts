@@ -26,7 +26,6 @@ export class AudioManager {
   private highShelf: BiquadFilterNode;
   private players: Map<string, { x: number; y: number }> = new Map();
   private ambientOsc: OscillatorNode | null = null;
-  private ambientGain: GainNode | null = null;
   private isEnabled = true;
 
   private static readonly EQ_PRESETS: Record<SoundType, EQPreset> = {
@@ -145,8 +144,7 @@ export class AudioManager {
     gain.connect(this.lowShelf);
     osc.start();
     this.ambientOsc = osc;
-    this.ambientGain = gain;
-    this.presetAmbientTimeout = setTimeout(() => this.ambientOsc?.stop(), 5000) as any;
+    this.presetAmbientTimeout = setTimeout(() => this.ambientOsc?.stop(), 5000) as ReturnType<typeof setTimeout>;
   }
 
   private presetAmbientTimeout: any = null;
@@ -162,6 +160,14 @@ export class AudioManager {
   }
 
   public registerPlayer(x: number, y: number): void {
+    this.players.set('player', { x, y });
+  }
+
+  /**
+   * Aktualisiert die Spielerposition für spatiales Audio.
+   * Muss pro Frame aufgerufen werden.
+   */
+  public update(x: number, y: number): void {
     this.players.set('player', { x, y });
   }
 

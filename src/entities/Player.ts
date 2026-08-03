@@ -1,14 +1,14 @@
 /**
- * Player – HIT, der blau farbene humanoide Tiger.
+ * Player – HIT, der blau farbige humanoide Tiger.
  * Phaser-Entity mit Arcade-Physik, Bewegung, Dash, Sprung, Animation & Kampf.
  */
 
 import { Physics, Scene } from 'phaser';
 import { PlayerConfig } from '../config/PlayerConfig';
 import { createMovementStats, MovementStats } from '../components/MovementStats';
-import { HealthComponent, HealthConfig } from '../components/HealthComponent';
+import { HealthComponent } from '../components/HealthComponent';
 import { InputSystem, PlayerCommand } from '../systems/InputSystem';
-import { AnimationSystem, AnimationState } from '../systems/AnimationSystem';
+import { AnimationSystem } from '../systems/AnimationSystem';
 import { Weapon } from './Weapon';
 
 export class Player extends Physics.Arcade.Sprite {
@@ -27,7 +27,6 @@ export class Player extends Physics.Arcade.Sprite {
   private coyoteTimer: number = 0;
   private jumpBufferTimer: number = 0;
   private wasOnFloor: boolean = false;
-  private _lastHeartbeat: number = 0;
 
   constructor(scene: Scene, x: number, y: number) {
     super(scene, x, y, 'idle_0'); // Platzhalter-Frame
@@ -35,7 +34,7 @@ export class Player extends Physics.Arcade.Sprite {
     this.health = new HealthComponent({
       maxHealth: PlayerConfig.maxHealth,
       invincibilityDuration: PlayerConfig.invincibilityDuration
-    } as HealthConfig);
+    });
     this.animationSystem = new AnimationSystem(scene);
 
     scene.add.existing(this);
@@ -68,18 +67,12 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   update(delta: number): void {
-    const dt = delta / 1000;
-
-    // Heartbeat – only once per second
-    if (Math.floor(performance.now() / 1000) !== this._lastHeartbeat) {
-      this._lastHeartbeat = Math.floor(performance.now() / 1000);
-      console.log('[Player] update() heartbeat, delta:', delta);
-    }
-
     if (!this.inputSystem) return;
 
     this.inputSystem.update();
     const commands = this.inputSystem.getPlayerCommands();
+
+    const dt = delta / 1000;
 
     this.handleTimers(dt);
     this.handleMovement(commands, dt);
@@ -114,13 +107,13 @@ export class Player extends Physics.Arcade.Sprite {
   private handleMovement(commands: PlayerCommand, dt: number): void {
     const body = this.body as Physics.Arcade.Body;
 
-    // Flip-X für Sprite-Richtung
+    // Flip-X für Sprite-Richtung (Phaser flipX = true zeigt nach LINKS)
     if (commands.moveLeft) {
-      this.setFlipX(false);
+      this.setFlipX(true);
       this.facingRight = false;
     }
     if (commands.moveRight) {
-      this.setFlipX(true);
+      this.setFlipX(false);
       this.facingRight = true;
     }
 
@@ -135,8 +128,6 @@ export class Player extends Physics.Arcade.Sprite {
       // Beschleunigen mit Delta-Zeit
       const targetVel = moveInput * this.stats.speed;
       const currentVel = body.velocity.x;
-      const accelStep = moveInput * this.stats.acceleration * dt;
-      const newVel = Phaser.Math.Linear(currentVel, targetVel, 0.2);
       body.setVelocityX(Phaser.Math.Linear(currentVel, targetVel, 0.2));
     } else {
       // Verlangsamen mit Delta-Zeit
@@ -153,6 +144,7 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   private handleJump(commands: PlayerCommand, dt: number): void {
+    void dt;
     // Jump Buffering: merken, dass Jump gerade frisch gedrückt wurde
     if (commands.jumpJustPressed) {
       this.jumpBufferTimer = this.stats.jumpBufferTime;
@@ -192,13 +184,13 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   private handleDash(commands: PlayerCommand, dt: number): void {
+    void dt;
     if (this.dashCooldownTimer > 0) {
       this.dashCooldownTimer -= dt;
     }
 
     // Dash startet nur auf Edge (frisch gedrückt)
     if (commands.dashJustPressed && !this.isDashing && this.dashCooldownTimer <= 0) {
-      console.log('[Player] Dash started!');
       this.isDashing = true;
       this.dashTimer = this.stats.dashDuration;
       this.dashCooldownTimer = this.stats.dashCooldown;
@@ -250,9 +242,7 @@ export class Player extends Physics.Arcade.Sprite {
   }
 
   private handleAttack(commands: PlayerCommand): void {
-    if (!this.weapon || !this.inputSystem?.isActionJustPressed('attack')) return;
-
-    console.log('[Player] Attack triggered!');
+    if (!this.weapon || !commands.attack) return;
     const hitboxConfig = this.weapon.attack(this);
     if (hitboxConfig) {
       this.scene.events.emit('playerAttack', this, hitboxConfig);
@@ -299,4 +289,3 @@ export class Player extends Physics.Arcade.Sprite {
     return this.weapon;
   }
 }
-

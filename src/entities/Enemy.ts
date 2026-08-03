@@ -1,37 +1,40 @@
 /**
  * Enemy – einfacher Gegner mit Grund-KI.
- * Bewegt sich zwischen zwei Punkten, nimmt Schaden von Spieler-Angriffen.
+ * Bewegt sich zwischen zwei Punkten, nimt Schaden von Spieler-Angriffen.
  */
 
 import { Physics } from 'phaser';
 import { HealthComponent, HealthConfig } from '../components/HealthComponent';
-import { EnemyConfig } from '../data/enemy-config';
+import { EnemyConfig, EnemyType } from '../data/enemy-config';
 
 export class Enemy extends Physics.Arcade.Sprite {
   private health: HealthComponent;
   private patrolSpeed: number;
   private patrolLeft: number;
   private patrolRight: number;
-  private direction: number = 1;
   private knockbackVelocity: number = 0;
+  private enemyType: EnemyType;
 
   constructor(
     scene: Phaser.Scene,
     x: number,
     y: number,
-    config: HealthConfig
+    config: HealthConfig,
+    type?: EnemyType
   ) {
     super(scene, x, y, 'enemy');
+    this.enemyType = type ?? 'shadow_wolf';
     this.health = new HealthComponent(config);
-    this.patrolSpeed = EnemyConfig.speed;
-    this.patrolLeft = x - EnemyConfig.patrolRange / 2;
-    this.patrolRight = x + EnemyConfig.patrolRange / 2;
+
+    const typeDefaults = EnemyConfig.types[this.enemyType];
+    this.patrolSpeed = typeDefaults.speed;
+    this.patrolLeft = x - typeDefaults.patrolRange / 2;
+    this.patrolRight = x + typeDefaults.patrolRange / 2;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     this.setupPhysics();
-    this.setupAnimations();
   }
 
   private setupPhysics(): void {
@@ -43,12 +46,8 @@ export class Enemy extends Physics.Arcade.Sprite {
     body.setVelocityX(this.patrolSpeed);
   }
 
-  private setupAnimations(): void {
-    // Platzhalter-Animation
-  }
-
   update(delta: number): void {
-    const dt = delta / 1000;
+    void delta;
     const body = this.body as Physics.Arcade.Body;
 
     // Knockback anwenden
@@ -61,11 +60,9 @@ export class Enemy extends Physics.Arcade.Sprite {
     } else {
       // Patrouillieren
       if (this.x <= this.patrolLeft) {
-        this.direction = 1;
         body.setVelocityX(this.patrolSpeed);
         this.setFlipX(false);
       } else if (this.x >= this.patrolRight) {
-        this.direction = -1;
         body.setVelocityX(-this.patrolSpeed);
         this.setFlipX(true);
       }
@@ -73,7 +70,11 @@ export class Enemy extends Physics.Arcade.Sprite {
   }
 
   takeDamage(amount: number, knockbackDirection: number, knockbackForce: number): boolean {
-    return this.health.takeDamage(amount, Date.now() / 1000);
+    const alive = this.health.takeDamage(amount, Date.now() / 1000);
+    if (alive) {
+      this.takeKnockback(knockbackDirection, knockbackForce);
+    }
+    return alive;
   }
 
   takeKnockback(direction: number, force: number): void {
@@ -82,5 +83,9 @@ export class Enemy extends Physics.Arcade.Sprite {
 
   isAlive(): boolean {
     return this.health.isAlive();
+  }
+
+  getDamage(): number {
+    return EnemyConfig.types[this.enemyType].damage;
   }
 }

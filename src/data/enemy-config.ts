@@ -2,12 +2,15 @@
  * Enemy-Konfiguration – zentrale Werte für alle Gegner-Typen.
  */
 
+export type EnemyType = 'shadow_wolf' | 'crystal_guardian';
+
 export const EnemyConfig = {
-  // Grundwerte (können pro Gegnertyp überschrieben werden)
+  // Standard-Werte (können pro Gegnertyp überschrieben werden)
   speed: 50,
   patrolRange: 120,
   health: 2,
   damage: 1,
+  invincibilityDuration: 0.5,
   knockbackResistance: 0.8,
 
   // Gegner-Typen
