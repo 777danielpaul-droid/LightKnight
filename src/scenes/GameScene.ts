@@ -154,18 +154,28 @@ export class GameScene extends Scene {
 
   private spawnCollectibles(collectibles: LevelCollectible[]): void {
     collectibles.forEach((c) => {
-      // Platzhalter: erstelle ein sichtbares Collectible-Sprite
-      const item = this.add.rectangle(c.x, c.y, 16, 16, 0xffaa00);
-      this.physics.add.existing(item, true); // static body
+      const texKey = `collectible_${c.type}`;
+      const item = this.physics.add
+        .sprite(c.x, c.y, texKey)
+        .setImmovable(true);
+      const body = item.body as Physics.Arcade.Body;
+      body.setAllowGravity(false);
+      item.setVelocity(0, 0);
 
-      // Bei Kollision mit Spieler:heilen/beschleunigen
+      // Leichte Bob-Animation
+      this.tweens.add({
+        targets: item,
+        y: c.y + 5,
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut'
+      });
+
+      // Bei Kollision mit Spieler:pickup + Effekte
       this.physics.add.overlap(this.player, item, () => {
-        if (c.type === 'health') {
-          // Spieler-Heilung (wird später über HealthComponent implementiert)
-          this.events.emit('collectiblePickup', c.type, c.x, c.y);
-        } else if (c.type === 'speed_boost') {
-          this.events.emit('collectiblePickup', c.type, c.x, c.y);
-        }
+        this.events.emit('collectiblePickup', c.type, c.x, c.y);
+        this.audioManager.playSFX('sfx_jump');  // kurzer Ping
         item.destroy();
       });
     });

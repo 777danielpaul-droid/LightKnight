@@ -45,6 +45,14 @@ export class BootScene extends Scene {
     // --- Hit-Effect ---
     PlaceholderAssetGenerator.generateHitEffectTexture(this);
 
+    // --- Collectible-Textures ---
+    PlaceholderAssetGenerator.generateCollectibleTexture(this, 'health');
+    PlaceholderAssetGenerator.generateCollectibleTexture(this, 'mana');
+    PlaceholderAssetGenerator.generateCollectibleTexture(this, 'speed_boost');
+
+    // --- Checkpoint ---
+    PlaceholderAssetGenerator.generateCheckpointTexture(this);
+
     // --- Particle ---
     PlaceholderAssetGenerator.generateParticleTexture(this);
 
