@@ -27,7 +27,8 @@ export class GameScene extends Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor(ActiveLevel.backgroundColor);
+    // --- Hintergrund: 3D-renderes Höhlen-Level-Design ---
+    this.add.image(0, 0, 'hollow_cave_preview').setOrigin(0, 0);
 
     // --- Platform-Gruppe ---
     this.platforms = this.physics.add.staticGroup();

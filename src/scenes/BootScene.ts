@@ -9,8 +9,13 @@ export class BootScene extends Scene {
 
   create(): void {
     this.generatePlaceholderTextures();
-    // Transition to GameScene (nach kurzer Verzögerung für Texture-Registrierung)
-    this.scene.start('GameScene');
+    // Lade das 3D-Level-Design-Bild
+    this.load.image('hollow_cave_preview', '/assets/hollow_cave_preview.png');
+    this.load.once('complete', () => {
+      // Transition to GameScene (nach kurzer Verzögerung für Texture-Registrierung)
+      this.scene.start('GameScene');
+    });
+    this.load.start();
   }
 
   private generatePlaceholderTextures(): void {
