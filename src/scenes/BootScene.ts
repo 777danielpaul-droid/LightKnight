@@ -45,8 +45,8 @@ export class BootScene extends Scene {
     // --- Hit-Effect ---
     PlaceholderAssetGenerator.generateHitEffectTexture(this);
 
-    // --- Background-Layer (Paralax) ---
-    PlaceholderAssetGenerator.generateBackgroundLayer(this);
+    // --- Hintergrund (atmoshphärische Ebene) ---
+    PlaceholderAssetGenerator.generateAtmosphericBackground(this);
 
     // --- Tilesheet ---
     PlaceholderAssetGenerator.generateTilesheet(this);

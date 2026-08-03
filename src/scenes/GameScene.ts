@@ -27,7 +27,8 @@ export class GameScene extends Scene {
   }
 
   create(): void {
-    this.cameras.main.setBackgroundColor(ActiveLevel.backgroundColor);
+    // --- Hintergrund-Sprite (atmoshphärische Ebene) ---
+    this.add.sprite(0, 0, 'atmospheric_bg').setOrigin(0, 0);
 
     // --- Platform-Gruppe ---
     this.platforms = this.physics.add.staticGroup();

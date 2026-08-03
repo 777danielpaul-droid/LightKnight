@@ -267,40 +267,88 @@ export class PlaceholderAssetGenerator {
   }
 
   /**
-   * Generiert eine 512x256 Background-Ebene mit Weitfern-Hintergrund-Elementen.
-   * Für Paralaxeffekte.
+   * Generiert eine 1024x720 Hintergrund-Textur mit mehreren
+   * atmosphärischen Ebenen und Lichtquellen.
+   * Stil: dunkle Höhle mit violettem Schimmer und isolierten Lichtern.
    */
-  static generateBackgroundLayer(scene: Scene): void {
+  static generateAtmosphericBackground(scene: Scene): void {
     const gfx = scene.add.graphics({ x: 0, y: 0 });
-    const width = 512;
-    const height = 256;
+    const width = 1024;
+    const height = 720;
 
-    // Tieferes Blau für Weitfern
-    gfx.fillStyle(0x0a0f2b);
-    gfx.fillRect(0, 0, width, height);
-
-    // Entfernte Berge (dunkelviolett)
-    gfx.fillStyle(0x2d1a4d, 0.4);
-    gfx.fillTriangle(50, height - 50, 120, height - 180, 200, height - 50);
-    gfx.fillTriangle(180, height - 40, 280, height - 160, 380, height - 40);
-    gfx.fillTriangle(320, height - 60, 420, height - 180, 500, height - 60);
-
-    // Entfernte Lichter (schwach leuchtend)
-    gfx.fillStyle(0x00f0ff, 0.3);
-    gfx.fillCircle(80, height - 200, 3);
-    gfx.fillCircle(220, height - 190, 3);
-    gfx.fillCircle(350, height - 220, 3);
-    gfx.fillCircle(450, height - 210, 3);
-
-    // Sterne
-    gfx.fillStyle(0xffffff, 0.6);
-    for (let i = 0; i < 50; i++) {
-      const sx = 20 + (i * 37) % (width - 40);
-      const sy = 20 + (i * 53) % (height - 40);
-      gfx.fillRect(sx, sy, 1, 1);
+    // --- Hintergrund: dunkler Verlauf (Tiefblau → violett) ---
+    for (let y = 0; y < height; y += 2) {
+      const t = y / height;
+      // Tiefblau oben (#0a0f2b) → dunkles Violett unten (#1e0f33)
+      const r = Math.floor(10 * (1 - t) + 30 * t);
+      const g = Math.floor(15 * (1 - t) + 10 * t);
+      const b = Math.floor(65 * (1 - t) + 77 * t);
+      gfx.fillStyle((r << 16) | (g << 8) | b);
+      gfx.fillRect(0, y, width, 2);
     }
 
-    gfx.generateTexture('background_layer', width, height);
+    // --- Weitfern: dunkle Berge / Silhouetten ---
+    gfx.fillStyle(0x1a0f33, 0.5); // dunkelviolett, halbtransparent
+    // Berge als ovale Silhouetten
+    for (let i = 0; i < 5; i++) {
+      const bx = i * 250;
+      const bw = 200 + i * 20;
+      const bh = 150 + i * 30;
+      const by = Math.floor(height * 0.4 + i * 20);
+      gfx.fillEllipse(bx + bw / 2, by + bh / 3, bw, bh * 0.6);
+    }
+
+    // --- Nebel-Ebene 1 (leicht, weit entfernt) ---
+    gfx.fillStyle(0x0a0f2b, 0.15);
+    for (let i = 0; i < 20; i++) {
+      const nx = (i * 137) % width;
+      const ny = Math.floor(((i * 73) % (height / 2)) + height * 0.1);
+      const nr = 40 + (i * 13) % 30;
+      gfx.fillCircle(nx, ny, nr);
+    }
+
+    // --- Lichterquellen in der Weitfern ---
+    const lightSources: Array<{ x: number; y: number; r: number; color: number; isCyan: boolean }> = [
+      { x: 150, y: 200, r: 60, color: 0x00f0ff, isCyan: true },
+      { x: 350, y: 150, r: 45, color: 0xa400ff, isCyan: false },
+      { x: 520, y: 280, r: 55, color: 0x00f0ff, isCyan: true },
+      { x: 780, y: 180, r: 50, color: 0xa400ff, isCyan: false },
+      { x: 900, y: 250, r: 35, color: 0x00f0ff, isCyan: true },
+      { x: 200, y: 400, r: 70, color: 0xa400ff, isCyan: false },
+      { x: 650, y: 350, r: 50, color: 0x00f0ff, isCyan: true },
+      { x: 820, y: 420, r: 45, color: 0xa400ff, isCyan: false },
+    ];
+
+    lightSources.forEach(ls => {
+      const alpha = ls.isCyan ? 0.2 : 0.18;
+      gfx.fillStyle(ls.color, alpha);
+      gfx.fillCircle(ls.x, ls.y, ls.r);
+      gfx.fillStyle(ls.color, alpha * 0.6);
+      gfx.fillCircle(ls.x, ls.y, ls.r * 0.6);
+    });
+
+    // --- Nebel-Ebene 2 (vorderer, dichter) ---
+    gfx.fillStyle(0x0a0f2b, 0.25);
+    for (let i = 0; i < 15; i++) {
+      const nx = 100 + (i * 211) % (width - 200);
+      const ny = Math.floor(height * 0.5 + (i * 43) % 200);
+      const nr = 60 + (i * 17) % 40;
+      gfx.fillCircle(nx, ny, nr);
+    }
+
+    // --- Untere Nebelschicht ---
+    gfx.fillStyle(0x0a0f2b, 0.35);
+    gfx.fillRect(0, height * 0.6, width, height * 0.4);
+
+    // --- Leise Lichtstrahlen ---
+    gfx.fillStyle(0x00f0ff, 0.4);
+    for (let i = 0; i < 30; i++) {
+      const sx = (i * 173) % width;
+      const sy = (i * 23) % Math.floor(height * 0.5);
+      gfx.fillRect(sx, sy, 1, 3);
+    }
+
+    gfx.generateTexture('atmospheric_bg', width, height);
     gfx.destroy();
   }
 }
