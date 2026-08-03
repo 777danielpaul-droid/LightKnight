@@ -50,18 +50,39 @@ export class BootScene extends Scene {
     // --- Hit-Effect ---
     PlaceholderAssetGenerator.generateHitEffectTexture(this);
 
+    // --- Hintergrund (atmoshphärische Ebene) ---
+    PlaceholderAssetGenerator.generateAtmosphericBackground(this);
+
+    // --- Tilesheet ---
+    PlaceholderAssetGenerator.generateTilesheet(this);
+
+    // --- Collectible-Textures ---
+    PlaceholderAssetGenerator.generateCollectibleTexture(this, 'health');
+    PlaceholderAssetGenerator.generateCollectibleTexture(this, 'mana');
+    PlaceholderAssetGenerator.generateCollectibleTexture(this, 'speed_boost');
+
+    // --- Checkpoint ---
+    PlaceholderAssetGenerator.generateCheckpointTexture(this);
+
     // --- Particle ---
     PlaceholderAssetGenerator.generateParticleTexture(this);
 
-    // --- Plattform-Textur (einmalig, wiederverwendbar) ---
-    const platTex = this.add.renderTexture(0, 0, 1280, 40);
-    platTex.draw(this.add.rectangle(640, 20, 1280, 40, 0x2d1a4d), 0, 0);
-    platTex.saveTexture('platform_large');
-    platTex.destroy();
+    // --- Platform-Texturen (Tilesheet-basiert) ---
+    // Large platform (1280x40) with stone tile pattern
+    const platLarge = this.add.renderTexture(0, 0, 1280, 40);
+    for (let x = 0; x < 1280; x += 32) {
+      platLarge.draw('tilesheet', x, 20, 3);  // Stone tile (index 3)
+    }
+    platLarge.saveTexture('platform_large');
+    platLarge.destroy();
 
-    const platSmallTex = this.add.renderTexture(0, 0, 120, 20);
-    platSmallTex.draw(this.add.rectangle(60, 10, 120, 20, 0x2d1a4d), 0, 0);
-    platSmallTex.saveTexture('platform_small');
-    platSmallTex.destroy();
+    // Small platform (120x20) with grassy stone edge
+    const platSmall = this.add.renderTexture(0, 0, 120, 20);
+    for (let x = 0; x < 120; x += 32) {
+      const frame = (x % 64 === 0) ? 1 : 3; // Grass-Top, Stone-Seiten
+      platSmall.draw('tilesheet', x, 10, frame);
+    }
+    platSmall.saveTexture('platform_small');
+    platSmall.destroy();
   }
 }

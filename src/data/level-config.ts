@@ -86,13 +86,16 @@ export const Level1: LevelConfig = {
   ],
 
   collectibles: [
-    // Gesundheit in der unteren Kammer
-    { x: 200, y: 460, type: 'health' },
-    { x: 600, y: 360, type: 'health' },
-    // Geschwindigkeits-Boost am Steigfliegel
-    { x: 1350, y: 260, type: 'speed_boost' },
-    // Mana am oberen Ende
-    { x: 1800, y: 260, type: 'mana' },
+    // Gesundheit in der unteren Kammer (nahe Boden)
+    { x: 200, y: 570, type: 'health' },
+    { x: 600, y: 570, type: 'health' },
+    // Geschwindigkeits-Boost am Plattform-Level
+    { x: 350, y: 470, type: 'speed_boost' },
+    { x: 750, y: 370, type: 'speed_boost' },
+    // Mana oben auf den Plattformen
+    { x: 1000, y: 470, type: 'mana' },
+    // Mana am unteren Niveau
+    { x: 280, y: 370, type: 'mana' },
   ],
 
   checkpoints: [

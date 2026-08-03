@@ -82,4 +82,273 @@ export class PlaceholderAssetGenerator {
     gfx.generateTexture('hit_effect', 16, 16);
     gfx.destroy();
   }
+
+  static generateCollectibleTexture(scene: Scene, type: 'health' | 'mana' | 'speed_boost'): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    // Hintergrund-Kreis
+    gfx.fillStyle(0x1a1a2e);
+    gfx.fillCircle(12, 12, 10);
+    // Type-spezifische Farbe + Symbol
+    switch (type) {
+      case 'health':
+        gfx.fillStyle(0xff4444);  // Rot
+        gfx.fillCircle(12, 12, 7);
+        // Herz-Symbol (vereinfacht)
+        gfx.fillStyle(0xff1111);
+        gfx.fillTriangle(8, 12, 12, 6, 16, 12);
+        gfx.fillRect(9, 12, 6, 5);
+        break;
+      case 'mana':
+        gfx.fillStyle(0x44aaff);  // Blau
+        gfx.fillCircle(12, 12, 7);
+        // Blitz
+        gfx.fillStyle(0xffff00);
+        gfx.beginPath();
+        gfx.moveTo(12, 5);
+        gfx.lineTo(16, 16);
+        gfx.lineTo(10, 16);
+        gfx.lineTo(14, 22);
+        gfx.lineTo(8, 12);
+        gfx.lineTo(12, 12);
+        gfx.fillPath();
+        break;
+      case 'speed_boost': {
+        gfx.fillStyle(0xffaa00);  // Gold
+        gfx.fillCircle(12, 12, 7);
+        // Stern
+        gfx.fillStyle(0xffff00);
+        gfx.beginPath();
+        const spikes = 5;
+        const outer = 7;
+        const inner = 3;
+        for (let i = 0; i < spikes * 2; i++) {
+          const angle = (i * Math.PI) / spikes;
+          const r = i % 2 === 0 ? outer : inner;
+          gfx.lineTo(12 + Math.cos(angle) * r, 12 + Math.sin(angle) * r);
+        }
+        gfx.fillPath();
+        break;
+      }
+    }
+    gfx.generateTexture(`collectible_${type}`, 24, 24);
+    gfx.destroy();
+  }
+
+  static generateCheckpointTexture(scene: Scene): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    // Torbogen
+    gfx.fillStyle(0x00f0ff);  // Cyan
+    gfx.fillRect(0, 0, 32, 48);
+    // Tor-Mittelstück (dunkler)
+    gfx.fillStyle(0x0a0f2b);
+    gfx.fillRect(4, 4, 24, 40);
+    // Leuchtender Rand
+    gfx.lineStyle(2, 0xa400ff, 0.8);  // Magenta
+    gfx.strokeRect(2, 2, 28, 44);
+    // Animated-Flag (links unten)
+    gfx.fillStyle(0xa400ff);
+    gfx.fillTriangle(0, 40, 12, 34, 12, 46);
+    gfx.generateTexture('checkpoint', 32, 48);
+    gfx.destroy();
+  }
+
+  /**
+   * Generiert ein 512x256 Tilesheet mit verschiedenen Stein- und Decor-Tiles.
+   * Jeder Tile ist 32x32 Pixel → 16x8 Tiles.
+   * Tile-Indizes:
+   * 0-2: Gras-Blocke (hellblau bis dunkelblau)
+   * 3-5: Stein-Blocke (grau)
+   * 6-7: Stein mit Moos (grüner Akzent)
+   * 8-9: Ladder (Holz)
+   * 10-11: Kerze (mit Flamme)
+   * 12-15: Leere Tiles (Luft)
+   */
+  static generateTilesheet(scene: Scene): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    const tileSize = 32;
+    const cols = 16;
+    const rows = 8;
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col * tileSize;
+        const y = row * tileSize;
+        const tileIndex = row * cols + col;
+
+        switch (tileIndex) {
+          // --- Grass Blocks ---
+          case 0: // Hellste Gras-Ebene (oben)
+            gfx.fillStyle(0x3a7ca5);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            gfx.fillStyle(0x2d5a7a);
+            gfx.fillRect(x, y, tileSize, 8); // Grasrand oben
+            break;
+          case 1: // Mittel-Gras
+            gfx.fillStyle(0x2d6a8c);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            gfx.fillStyle(0x1d4a6a);
+            gfx.fillRect(x, y, tileSize, 8);
+            break;
+          case 2: // Dunkel-Gras
+            gfx.fillStyle(0x1d5a7a);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            gfx.fillStyle(0x0d3a5a);
+            gfx.fillRect(x, y, tileSize, 6);
+            break;
+
+          // --- Stone Blocks ---
+          case 3:
+            gfx.fillStyle(0x6a6a6a);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            break;
+          case 4:
+            gfx.fillStyle(0x5a5a5a);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            break;
+          case 5:
+            gfx.fillStyle(0x7a7a7a);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            break;
+
+          // --- Stone with Moss ---
+          case 6:
+            gfx.fillStyle(0x6a6a6a);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            gfx.fillStyle(0x3a7a3a); // Moos-Grün
+            gfx.fillRect(x + 4, y + 4, 8, 8);
+            gfx.fillRect(x + 20, y + 16, 6, 6);
+            break;
+          case 7:
+            gfx.fillStyle(0x5a5a5a);
+            gfx.fillRect(x, y, tileSize, tileSize);
+            gfx.fillStyle(0x3a7a3a);
+            gfx.fillRect(x + 16, y + 8, 10, 8);
+            gfx.fillRect(x + 4, y + 20, 8, 6);
+            break;
+
+          // --- Ladder ---
+          case 8:
+            gfx.fillStyle(0x8b5a2b); // Holz-Braun
+            gfx.fillRect(x, y, tileSize, tileSize);
+            gfx.fillStyle(0x8b5a2b);
+            gfx.fillRect(x, y, 6, tileSize); // Links
+            gfx.fillRect(x + 26, y, 6, tileSize); // Rechts
+            gfx.fillRect(x + 6, y + 8, 18, 4); // Stufe
+            gfx.fillRect(x + 6, y + 18, 18, 4);
+            gfx.fillRect(x + 6, y + 28, 18, 4);
+            break;
+
+          // --- Candle / Kerze ---
+          case 9:
+            gfx.fillStyle(0x8b5a2b); // Kerzen-Stand
+            gfx.fillRect(x + 14, y, 4, 24);
+            gfx.fillStyle(0x3a3a3a);
+            gfx.fillRect(x + 10, y + 24, 12, 4); // Basis
+            // Flamme
+            gfx.fillStyle(0xffaa00);
+            gfx.fillCircle(x + 16, y + 4, 4);
+            gfx.fillStyle(0xffdd00);
+            gfx.fillCircle(x + 16, y + 3, 2);
+            // Licht-Halo
+            gfx.fillStyle(0xffaa00, 0.3);
+            gfx.fillCircle(x + 16, y + 4, 8);
+            break;
+
+          // --- Empty / Air tiles ---
+          default:
+            // Transparent (leer)
+            break;
+        }
+      }
+    }
+
+    gfx.generateTexture('tilesheet', cols * tileSize, rows * tileSize);
+    gfx.destroy();
+  }
+
+  /**
+   * Generiert eine 1024x720 Hintergrund-Textur mit mehreren
+   * atmosphärischen Ebenen und Lichtquellen.
+   * Stil: dunkle Höhle mit violettem Schimmer und isolierten Lichtern.
+   */
+  static generateAtmosphericBackground(scene: Scene): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    const width = 1024;
+    const height = 720;
+
+    // --- Hintergrund: dunkler Verlauf (Tiefblau → violett) ---
+    for (let y = 0; y < height; y += 2) {
+      const t = y / height;
+      // Tiefblau oben (#0a0f2b) → dunkles Violett unten (#1e0f33)
+      const r = Math.floor(10 * (1 - t) + 30 * t);
+      const g = Math.floor(15 * (1 - t) + 10 * t);
+      const b = Math.floor(65 * (1 - t) + 77 * t);
+      gfx.fillStyle((r << 16) | (g << 8) | b);
+      gfx.fillRect(0, y, width, 2);
+    }
+
+    // --- Weitfern: dunkle Berge / Silhouetten ---
+    gfx.fillStyle(0x1a0f33, 0.5); // dunkelviolett, halbtransparent
+    // Berge als ovale Silhouetten
+    for (let i = 0; i < 5; i++) {
+      const bx = i * 250;
+      const bw = 200 + i * 20;
+      const bh = 150 + i * 30;
+      const by = Math.floor(height * 0.4 + i * 20);
+      gfx.fillEllipse(bx + bw / 2, by + bh / 3, bw, bh * 0.6);
+    }
+
+    // --- Nebel-Ebene 1 (leicht, weit entfernt) ---
+    gfx.fillStyle(0x0a0f2b, 0.15);
+    for (let i = 0; i < 20; i++) {
+      const nx = (i * 137) % width;
+      const ny = Math.floor(((i * 73) % (height / 2)) + height * 0.1);
+      const nr = 40 + (i * 13) % 30;
+      gfx.fillCircle(nx, ny, nr);
+    }
+
+    // --- Lichterquellen in der Weitfern ---
+    const lightSources: Array<{ x: number; y: number; r: number; color: number; isCyan: boolean }> = [
+      { x: 150, y: 200, r: 60, color: 0x00f0ff, isCyan: true },
+      { x: 350, y: 150, r: 45, color: 0xa400ff, isCyan: false },
+      { x: 520, y: 280, r: 55, color: 0x00f0ff, isCyan: true },
+      { x: 780, y: 180, r: 50, color: 0xa400ff, isCyan: false },
+      { x: 900, y: 250, r: 35, color: 0x00f0ff, isCyan: true },
+      { x: 200, y: 400, r: 70, color: 0xa400ff, isCyan: false },
+      { x: 650, y: 350, r: 50, color: 0x00f0ff, isCyan: true },
+      { x: 820, y: 420, r: 45, color: 0xa400ff, isCyan: false },
+    ];
+
+    lightSources.forEach(ls => {
+      const alpha = ls.isCyan ? 0.2 : 0.18;
+      gfx.fillStyle(ls.color, alpha);
+      gfx.fillCircle(ls.x, ls.y, ls.r);
+      gfx.fillStyle(ls.color, alpha * 0.6);
+      gfx.fillCircle(ls.x, ls.y, ls.r * 0.6);
+    });
+
+    // --- Nebel-Ebene 2 (vorderer, dichter) ---
+    gfx.fillStyle(0x0a0f2b, 0.25);
+    for (let i = 0; i < 15; i++) {
+      const nx = 100 + (i * 211) % (width - 200);
+      const ny = Math.floor(height * 0.5 + (i * 43) % 200);
+      const nr = 60 + (i * 17) % 40;
+      gfx.fillCircle(nx, ny, nr);
+    }
+
+    // --- Untere Nebelschicht ---
+    gfx.fillStyle(0x0a0f2b, 0.35);
+    gfx.fillRect(0, height * 0.6, width, height * 0.4);
+
+    // --- Leise Lichtstrahlen ---
+    gfx.fillStyle(0x00f0ff, 0.4);
+    for (let i = 0; i < 30; i++) {
+      const sx = (i * 173) % width;
+      const sy = (i * 23) % Math.floor(height * 0.5);
+      gfx.fillRect(sx, sy, 1, 3);
+    }
+
+    gfx.generateTexture('atmospheric_bg', width, height);
+    gfx.destroy();
+  }
 }
