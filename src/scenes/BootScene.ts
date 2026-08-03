@@ -53,6 +53,12 @@ export class BootScene extends Scene {
     // --- Hintergrund (atmoshphärische Ebene) ---
     PlaceholderAssetGenerator.generateAtmosphericBackground(this);
 
+    // --- Parallax-Hintergrund-Ebenen ---
+    PlaceholderAssetGenerator.generateBgMountains(this);
+    PlaceholderAssetGenerator.generateBgFogFar(this);
+    PlaceholderAssetGenerator.generateBgLights(this);
+    PlaceholderAssetGenerator.generateBgFogNear(this);
+
     // --- Tilesheet ---
     PlaceholderAssetGenerator.generateTilesheet(this);
 

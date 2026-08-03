@@ -30,6 +30,13 @@ export interface LevelCheckpoint {
   id: string;
 }
 
+export interface ParallaxLayerConfig {
+  key: string;
+  scrollFactor: number;
+  tile?: boolean;
+  alpha?: number;
+}
+
 export interface LevelConfig {
   id: string;
   name: string;
@@ -40,6 +47,7 @@ export interface LevelConfig {
   enemies: LevelEnemy[];
   collectibles: LevelCollectible[];
   checkpoints: LevelCheckpoint[];
+  backgroundLayers: ParallaxLayerConfig[];
 }
 
 /**
@@ -53,6 +61,12 @@ export const Level1: LevelConfig = {
   width: 2000,
   height: 1000,
   backgroundColor: '#0a0f2b',
+  backgroundLayers: [
+    { key: 'bg_mountains', scrollFactor: 0.05, alpha: 1 },
+    { key: 'bg_fog_far', scrollFactor: 0.15, alpha: 0.4 },
+    { key: 'bg_lights', scrollFactor: 0.30, alpha: 0.7 },
+    { key: 'bg_fog_near', scrollFactor: 0.50, tile: true, alpha: 0.3 },
+  ],
 
   platforms: [
     // Boden
@@ -114,6 +128,12 @@ export const Level2: LevelConfig = {
   width: 1600,
   height: 1400,
   backgroundColor: '#0a0f2b',
+  backgroundLayers: [
+    { key: 'bg_mountains', scrollFactor: 0.05, alpha: 1 },
+    { key: 'bg_fog_far', scrollFactor: 0.15, alpha: 0.4 },
+    { key: 'bg_lights', scrollFactor: 0.30, alpha: 0.7 },
+    { key: 'bg_fog_near', scrollFactor: 0.50, tile: true, alpha: 0.3 },
+  ],
 
   platforms: [
     { x: 320, y: 680, type: 'large' },

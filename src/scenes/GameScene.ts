@@ -74,6 +74,67 @@ export class GameScene extends Scene {
 
     // Ambient-Loop starten
     this.audioManager.resume();
+
+    // Parallax-Hintergrund und Spezialeffekte initialisieren
+    this.setupParallaxBackground();
+    this.setupSpecialEffects();
+  }
+
+  private setupParallaxBackground(): void {
+    // 4-Schichtiger Parallax-Hintergrund
+    ActiveLevel.backgroundLayers.forEach((layer) => {
+      const sprite = this.add.image(0, 0, layer.key).setOrigin(0, 0);
+      if (layer.alpha !== undefined) sprite.setAlpha(layer.alpha);
+
+      // Für getilete Ebenen (Nebel) nutzen wir tileSprite
+      if (layer.tile) {
+        const tileSprite = this.add.tileSprite(0, 0, 1280, 720, layer.key).setOrigin(0, 0);
+        if (layer.alpha !== undefined) tileSprite.setAlpha(layer.alpha);
+
+        // Scroll-Effekt per Tween (nur für die Tile-Ebene)
+        if (layer.key === 'bg_fog_near') {
+          this.tweens.add({
+            targets: tileSprite,
+            tilePositionX: 200,
+            duration: 30000,
+            repeat: -1,
+            ease: 'Linear',
+          });
+        }
+      }
+
+      // Parallax folgt der Camera mit Scroll-Faktor
+      this.cameras.main.on('cameraevent', () => {
+        sprite.x = this.cameras.main.scrollX * layer.scrollFactor;
+        sprite.y = this.cameras.main.scrollY * layer.scrollFactor;
+      });
+    });
+  }
+
+  private setupSpecialEffects(): void {
+    // 1. Smooth Fade-In beim Levelstart
+    this.cameras.main.fadeIn(800, 0, 0, 0);
+
+    // 2. Lichtquellen-Pulsieren (Licht-Ebene)
+    const lights = this.add.image(0, 0, 'bg_lights').setOrigin(0, 0);
+    lights.setAlpha(0.7);
+    this.tweens.add({
+      targets: lights,
+      alpha: { from: 0.7, to: 1 },
+      duration: 3000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
+
+    // 3. Nebel-Ebene mit sanfter Bewegung
+    const fogFar = this.add.image(0, 0, 'bg_fog_far').setOrigin(0, 0);
+    fogFar.setAlpha(0.4);
+    this.cameras.main.on('cameraevent', () => {
+      // Nebel bewegt sich langsam mit
+      fogFar.x = this.cameras.main.scrollX * 0.15 + Math.sin(this.time.now * 0.0001) * 10;
+      fogFar.y = this.cameras.main.scrollY * 0.15 + Math.cos(this.time.now * 0.00007) * 5;
+    });
   }
 
   private setupCombat(): void {

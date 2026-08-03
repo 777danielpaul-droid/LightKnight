@@ -351,4 +351,127 @@ export class PlaceholderAssetGenerator {
     gfx.generateTexture('atmospheric_bg', width, height);
     gfx.destroy();
   }
+
+  /**
+   * Generiert eine 1280x720 Parallax-Ebene für Berg-Silhouetten.
+   * Dunkelviolette Berge, die sich langsam von der Kamera entfernen.
+   */
+  static generateBgMountains(scene: Scene): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    const w = 1280;
+    const h = 720;
+
+    // Dunkler Hintergrund-Verlauf
+    for (let y = 0; y < h; y += 2) {
+      const t = y / h;
+      const r = Math.floor(5 * (1 - t) + 15 * t);
+      const g = Math.floor(8 * (1 - t) + 5 * t);
+      const b = Math.floor(40 * (1 - t) + 51 * t);
+      gfx.fillStyle((r << 16) | (g << 8) | b);
+      gfx.fillRect(0, y, w, 2);
+    }
+
+    // Berge-Silhouetten (dunkelviolett)
+    gfx.fillStyle(0x1a0f22, 0.4);
+    for (let i = 0; i < 7; i++) {
+      const bx = i * 200;
+      const bw = 250 + i * 20;
+      const bh = 180 + i * 30;
+      gfx.fillEllipse(bx + bw / 2, h * 0.5, bw, bh);
+    }
+
+    // Sterne (klein, weiß)
+    gfx.fillStyle(0xffffff, 0.4);
+    for (let i = 0; i < 80; i++) {
+      const sx = (i * 37) % w;
+      const sy = (i * 53) % (h * 0.7);
+      gfx.fillRect(sx, sy, 1, 1);
+    }
+
+    gfx.generateTexture('bg_mountains', w, h);
+    gfx.destroy();
+  }
+
+  /**
+   * Generiert eine 1280x720 Parallax-Ebene für weite Nebel.
+   * Sehr transparent, langsam bewegend.
+   */
+  static generateBgFogFar(scene: Scene): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    const w = 1280;
+    const h = 720;
+
+    // Transparente Nebel-Kreise
+    gfx.fillStyle(0x0a0f2b, 0.35);
+    for (let i = 0; i < 25; i++) {
+      const nx = (i * 157) % w;
+      const ny = Math.floor((i * 73) % (h * 0.8)) + 50;
+      const nr = 60 + (i * 13) % 80;
+      gfx.fillCircle(nx, ny, nr);
+    }
+
+    gfx.generateTexture('bg_fog_far', w, h);
+    gfx.destroy();
+  }
+
+  /**
+   * Generiert eine 1280x720 Parallax-Ebene mit Lichtern.
+   * Cyan- und Magenta-Lichter, die pulsieren.
+   */
+  static generateBgLights(scene: Scene): void {
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+    const w = 1280;
+    const h = 720;
+
+    // Hintergrund schwarz-transparent
+    gfx.fillStyle(0x000000, 0);
+
+    // Lichtquellen
+    const lights: Array<{ x: number; y: number; r: number; color: number }> = [
+      { x: 180, y: 220, r: 70, color: 0x00f0ff },
+      { x: 420, y: 180, r: 55, color: 0xa400ff },
+      { x: 650, y: 300, r: 65, color: 0x00f0ff },
+      { x: 900, y: 200, r: 50, color: 0xa400ff },
+      { x: 1100, y: 280, r: 40, color: 0x00f0ff },
+      { x: 250, y: 480, r: 80, color: 0xa400ff },
+      { x: 700, y: 420, r: 60, color: 0x00f0ff },
+      { x: 950, y: 520, r: 45, color: 0xa400ff },
+      { x: 380, y: 120, r: 35, color: 0x00f0ff },
+      { x: 750, y: 80, r: 30, color: 0xa400ff },
+    ];
+
+    lights.forEach(ls => {
+      // Innerer Kern (hell)
+      gfx.fillStyle(ls.color, 0.5);
+      gfx.fillCircle(ls.x, ls.y, ls.r);
+      // Äußerer Flare (dunkler)
+      gfx.fillStyle(ls.color, 0.2);
+      gfx.fillCircle(ls.x, ls.y, ls.r * 1.8);
+    });
+
+    gfx.generateTexture('bg_lights', w, h);
+    gfx.destroy();
+  }
+
+  /**
+   * Generiert eine 1280x720 Nebel-Ebene für Tile-Sprite.
+   * Wiederholbar für Scroll-Effekt.
+   */
+  static generateBgFogNear(scene: Scene): void {
+    const w = 1280;
+    const h = 720;
+    const gfx = scene.add.graphics({ x: 0, y: 0 });
+
+    // Dichte, nahe Nebelschicht
+    gfx.fillStyle(0x0a0f2b, 0.5);
+    for (let i = 0; i < 20; i++) {
+      const nx = 100 + (i * 181) % (w - 200);
+      const ny = Math.floor(h * 0.4 + (i * 43) % 200);
+      const nr = 80 + (i * 17) % 60;
+      gfx.fillCircle(nx, ny, nr);
+    }
+
+    gfx.generateTexture('bg_fog_near', w, h);
+    gfx.destroy();
+  }
 }
